@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.egg-info
+.env
+*.wav
+saq_morse_decoder.egg-info
+scripts/
+deploy/
+.gitignore

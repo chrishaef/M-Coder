@@ -1,10 +1,20 @@
 services:
-  saq-decoder:
+  m-coder:
     build: .
+    image: m-coder:latest
+    container_name: m-coder
     ports:
-      - "8080:8080"
+      - "${SAQ_PORT:-8080}:8080"
+    env_file:
+      - .env
     environment:
-      # Optional: API-Schlüssel für öffentlichen Betrieb
-      # SAQ_API_KEY: "dein-geheimer-schlüssel"
-      SAQ_MAX_UPLOAD_MB: "100"
+      SAQ_VENDOR_DIR: /app/vendor
+      SAQ_HOST: 0.0.0.0
+      SAQ_PORT: 8080
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped

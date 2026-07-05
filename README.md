@@ -32,34 +32,60 @@ saq-serve
 # → http://localhost:8080
 ```
 
-## Debian-Server (Docker, empfohlen)
+## Proxmox LXC / Linux-Server
+
+Ausführliche Anleitung: **[deploy/LXC.md](deploy/LXC.md)**
+
+### Schnellstart native (empfohlen für LXC)
 
 ```bash
-git clone https://github.com/chrishaef/M-Coder.git /opt/saq-morse-decoder
-cd /opt/saq-morse-decoder
+git clone https://github.com/chrishaef/M-Coder.git /opt/m-coder
+cd /opt/m-coder
+chmod +x scripts/*.sh
+sudo ./scripts/install.sh
+# → http://<container-ip>:8080
+```
+
+### Schnellstart Docker (LXC mit nesting=1)
+
+```bash
+git clone https://github.com/chrishaef/M-Coder.git /opt/m-coder
+cd /opt/m-coder
+cp deploy/env.example .env
+chmod +x scripts/docker-up.sh
+./scripts/docker-up.sh
+```
+
+### Manuell ohne systemd
+
+```bash
+./scripts/start.sh
+```
+
+## Debian-Server (Docker, manuell)
+
+```bash
+git clone https://github.com/chrishaef/M-Coder.git /opt/m-coder
+cd /opt/m-coder
+cp deploy/env.example .env
 docker compose up -d --build
 ```
 
 Der Dienst läuft auf Port **8080**. Für Produktion:
 
-1. `SAQ_API_KEY` in `docker-compose.yml` setzen
+1. `SAQ_API_KEY` in `.env` setzen
 2. nginx/Caddy als TLS-Reverse-Proxy davor (siehe `deploy/nginx.conf.example`)
 
-## Debian-Server (ohne Docker)
+## Debian-Server (ohne Docker, manuell)
 
 ```bash
-apt install python3 python3-venv python3-pip openjdk-21-jre-headless
-git clone https://github.com/chrishaef/M-Coder.git /opt/saq-morse-decoder
-cd /opt/saq-morse-decoder
-python3 -m venv .venv
-source .venv/bin/activate
+apt install python3 python3-venv python3-pip openjdk-21-jre-headless git
+git clone https://github.com/chrishaef/M-Coder.git /opt/m-coder
+cd /opt/m-coder
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
-
-# systemd
-useradd --system --home /opt/saq-morse-decoder saq
-cp deploy/saq-decoder.service /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --now saq-decoder
+cp deploy/env.example .env
+./scripts/start.sh
 ```
 
 ## API
@@ -108,8 +134,9 @@ M-Coder/
 │   ├── core.py           # Dekodier-Logik
 │   ├── gerke.py          # Java-Wrapper
 │   └── web/              # FastAPI-Dienst
+├── scripts/              # install.sh, start.sh, docker-up.sh
 ├── vendor/               # gerke-decoder JARs
-├── deploy/               # systemd + nginx
+├── deploy/               # systemd, nginx, LXC-Anleitung
 ├── Dockerfile
 └── docker-compose.yml
 ```
