@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SAQ Morse Decoder</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --text: #e8eef5;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3dd68c;
+      --err: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); margin-bottom: 2rem; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input[type="file"], input[type="number"], input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #2d3a4f;
+      border-radius: 8px;
+      background: #0f1419;
+      color: var(--text);
+      margin-bottom: 1rem;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 500px) { .row { grid-template-columns: 1fr; } }
+    .check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+    .check input { width: auto; margin: 0; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    pre {
+      background: #0a0e14;
+      border-radius: 8px;
+      padding: 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.9rem;
+      min-height: 4rem;
+    }
+    .meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; }
+    .error { color: var(--err); }
+    .ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SAQ Morse Decoder</h1>
+    <p class="sub">VLF-Aufnahmen des schwedischen Senders SAQ (17.2 kHz) dekodieren</p>
+
+    <form id="form" class="card">
+      <label for="file">WAV-Aufnahme</label>
+      <input type="file" id="file" name="file" accept=".wav,audio/wav" required>
+
+      <div class="row">
+        <div>
+          <label for="offset">Offset (Sekunden)</label>
+          <input type="number" id="offset" name="offset" value="0" min="0" step="1">
+        </div>
+        <div>
+          <label for="length">Länge (Sek., leer = ganze Datei)</label>
+          <input type="number" id="length" name="length" min="1" step="1" placeholder="z.B. 275">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="freq">Tonfrequenz (Hz)</label>
+          <input type="number" id="freq" name="freq" value="750" min="100" max="5000">
+        </div>
+        <div>
+          <label for="wpm">WPM (leer = automatisch)</label>
+          <input type="number" id="wpm" name="wpm" min="5" max="40" step="1" placeholder="auto">
+        </div>
+      </div>
+
+      <label for="apikey">API-Schlüssel (optional)</label>
+      <input type="password" id="apikey" name="apikey" placeholder="Nur wenn SAQ_API_KEY gesetzt ist">
+
+      <div class="check">
+        <input type="checkbox" id="auto_wpm" name="auto_wpm" checked>
+        <label for="auto_wpm" style="margin:0">WPM automatisch ermitteln</label>
+      </div>
+
+      <button type="submit" id="btn">Dekodieren</button>
+    </form>
+
+    <div class="card">
+      <label>Ergebnis</label>
+      <pre id="out">Noch keine Dekodierung.</pre>
+      <div class="meta" id="meta"></div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('form');
+    const out = document.getElementById('out');
+    const meta = document.getElementById('meta');
+    const btn = document.getElementById('btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      out.textContent = 'Dekodiere…';
+      meta.textContent = '';
+      meta.className = 'meta';
+
+      const fd = new FormData();
+      const file = document.getElementById('file').files[0];
+      if (!file) return;
+      fd.append('file', file);
+      fd.append('offset', document.getElementById('offset').value || '0');
+      const len = document.getElementById('length').value;
+      if (len) fd.append('length', len);
+      fd.append('freq', document.getElementById('freq').value || '750');
+      const wpm = document.getElementById('wpm').value;
+      if (wpm) fd.append('wpm', wpm);
+      fd.append('auto_wpm', document.getElementById('auto_wpm').checked ? 'true' : 'false');
+
+      const headers = {};
+      const key = document.getElementById('apikey').value.trim();
+      if (key) headers['X-API-Key'] = key;
+
+      try {
+        const res = await fetch('/decode', { method: 'POST', body: fd, headers });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        out.textContent = data.text || '(leer)';
+        meta.className = 'meta ok';
+        meta.textContent = `Engine: ${data.engine} · WPM: ${data.wpm} · Dauer: ${data.duration_seconds}s · Datei: ${data.input.filename} (${data.input.duration_seconds}s)`;
+      } catch (err) {
+        out.textContent = '';
+        meta.className = 'meta error';
+        meta.textContent = 'Fehler: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

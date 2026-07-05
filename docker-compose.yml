@@ -1,0 +1,10 @@
+services:
+  saq-decoder:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Optional: API-Schlüssel für öffentlichen Betrieb
+      # SAQ_API_KEY: "dein-geheimer-schlüssel"
+      SAQ_MAX_UPLOAD_MB: "100"
+    restart: unless-stopped
