@@ -1,8 +1,10 @@
 /** Transmit – generate CW audio from text */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const form = document.getElementById('transmit-form');
   if (!form) return;
+
+  await Presets.load();
 
   const textInput = document.getElementById('transmit-text');
   const preview = document.getElementById('transmit-morse-preview');
@@ -10,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const meta = document.getElementById('transmit-meta');
   const playerCard = document.getElementById('transmit-player');
   const playerInfo = document.getElementById('transmit-info');
+  const presetSelect = document.getElementById('transmit-preset');
 
   const player = createWaveformPlayer({
     wrap: '#transmit-waveform-wrap',
@@ -18,7 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
     timeTotal: '#transmit-time-total',
     btnPlay: '#transmit-btn-play',
     selectable: false,
+    zoomable: true,
+    btnZoomIn: '#transmit-zoom-in',
+    btnZoomOut: '#transmit-zoom-out',
+    btnZoomReset: '#transmit-zoom-reset',
   });
+
+  Presets.fillSelect(presetSelect, Presets.currentId);
+  Presets.bindSelect(presetSelect, 'transmit-');
 
   const MORSE_CHARS = {
     A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....',
@@ -38,6 +48,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return parts.join(' ') || '(leer)';
   }
 
+  function getTransmitBody() {
+    return {
+      text: textInput.value,
+      freq: parseInt(document.getElementById('transmit-freq').value, 10) || 750,
+      wpm: parseFloat(document.getElementById('transmit-wpm').value) || 20,
+      sample_rate: parseInt(document.getElementById('transmit-sr').value, 10) || 8000,
+    };
+  }
+
   textInput.addEventListener('input', () => {
     preview.textContent = clientMorsePreview(textInput.value);
   });
@@ -49,12 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     meta.textContent = 'Erzeuge CW-Signal\u2026';
     meta.className = 'meta';
 
-    const body = {
-      text: textInput.value,
-      freq: parseInt(document.getElementById('transmit-freq').value, 10) || 750,
-      wpm: parseFloat(document.getElementById('transmit-wpm').value) || 20,
-      sample_rate: parseInt(document.getElementById('transmit-sr').value, 10) || 8000,
-    };
+    const body = getTransmitBody();
 
     try {
       const res = await fetch('/transmit', {
@@ -78,7 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
       playerCard.classList.remove('hidden');
 
       meta.className = 'meta ok';
-      meta.textContent = 'CW-Audio erzeugt – Vorschau abspielen oder Datei speichern.';
+      meta.textContent =
+        'Preset: ' + (Presets.get(Presets.currentId)?.name || '') +
+        ' \u00b7 CW-Audio erzeugt';
     } catch (err) {
       meta.className = 'meta error';
       meta.textContent = 'Fehler: ' + err.message;
@@ -91,12 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const res = await fetch('/transmit', {
       method: 'POST',
       headers: { ...App.headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: textInput.value,
-        freq: parseInt(document.getElementById('transmit-freq').value, 10) || 750,
-        wpm: parseFloat(document.getElementById('transmit-wpm').value) || 20,
-        sample_rate: parseInt(document.getElementById('transmit-sr').value, 10) || 8000,
-      }),
+      body: JSON.stringify(getTransmitBody()),
     });
     if (!res.ok) return;
     const blob = await res.blob();

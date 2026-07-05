@@ -1,35 +1,13 @@
 from __future__ import annotations
 
-import wave
 from pathlib import Path
 
 import numpy as np
 from scipy import signal
 from scipy.ndimage import gaussian_filter1d, maximum_filter1d, minimum_filter1d
 
+from saq_decoder.audio_analysis import find_tone_freq, load_wav_segment
 from saq_decoder.morse import MORSE
-
-
-def _load_wav_segment(path: Path, offset: float, length: float | None):
-    with wave.open(str(path), "rb") as w:
-        sr = w.getframerate()
-        raw = w.readframes(w.getnframes())
-    data = np.frombuffer(raw, dtype=np.int16).astype(np.float64)
-    data /= max(np.max(np.abs(data)), 1e-12)
-    i0 = int(offset * sr)
-    i1 = int((offset + length) * sr) if length else len(data)
-    return sr, data[i0:i1]
-
-
-def _find_tone_freq(data, sr, lo=400, hi=1200):
-    seg = data[: min(len(data), int(20 * sr))]
-    best_f, best_p = 750, 0.0
-    for f in range(lo, hi, 5):
-        t = np.arange(len(seg)) / sr
-        p = abs(np.dot(seg, np.sin(2 * np.pi * f * t)))
-        if p > best_p:
-            best_f, best_p = f, p
-    return best_f
 
 
 def decode_with_python(
@@ -40,12 +18,12 @@ def decode_with_python(
     freq: int | None = None,
     wpm: float = 18,
 ) -> str:
-    sr, data = _load_wav_segment(wav, offset, length)
+    sr, data = load_wav_segment(wav, offset, length)
     if len(data) < sr:
         raise RuntimeError("Audiosegment zu kurz")
 
     if freq is None:
-        freq = _find_tone_freq(data, sr)
+        freq = find_tone_freq(data, sr)
 
     tu = 1.2 / wpm
     t = np.arange(len(data)) / sr

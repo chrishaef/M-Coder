@@ -1,8 +1,10 @@
 /** File Decode panel */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const form = document.getElementById('file-form');
   if (!form) return;
+
+  await Presets.load();
 
   const out = document.getElementById('file-out');
   const meta = document.getElementById('file-meta-result');
@@ -10,20 +12,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input');
   const offsetInput = document.getElementById('file-offset');
   const lengthInput = document.getElementById('file-length');
+  const freqInput = document.getElementById('file-freq');
   const fileMeta = document.getElementById('file-info');
   const playerCard = document.getElementById('file-player');
+  const presetSelect = document.getElementById('file-preset');
+  const dropZone = document.getElementById('file-drop');
+  const detectedFreqEl = document.getElementById('file-detected-freq');
+  const configuredFreqEl = document.getElementById('file-configured-freq');
+  const applyFreqBtn = document.getElementById('file-apply-freq');
 
   let inputSyncTimer = null;
+
+  function updateFreqBar(detected) {
+    if (detectedFreqEl) detectedFreqEl.textContent = detected != null ? String(detected) : '–';
+    if (configuredFreqEl) {
+      configuredFreqEl.textContent = freqInput.value || '–';
+    }
+  }
 
   const player = createWaveformPlayer({
     wrap: '#file-waveform-wrap',
     canvas: '#file-waveform',
+    spectrumCanvas: '#file-spectrum',
     timeCurrent: '#file-time-current',
     timeTotal: '#file-time-total',
+    viewRange: '#file-view-range',
     selectionInfo: '#file-selection-info',
     btnPlay: '#file-btn-play',
     btnPlaySel: '#file-btn-play-sel',
     btnClearSel: '#file-btn-clear-sel',
+    btnZoomIn: '#file-zoom-in',
+    btnZoomOut: '#file-zoom-out',
+    btnZoomReset: '#file-zoom-reset',
+    initialFreq: parseInt(freqInput.value, 10) || 750,
     onSelectionChange(sel) {
       if (sel) {
         offsetInput.value = sel.start.toFixed(1);
@@ -33,7 +54,59 @@ document.addEventListener('DOMContentLoaded', () => {
         lengthInput.value = '';
       }
     },
+    onAnalysis({ detectedFreq }) {
+      updateFreqBar(detectedFreq);
+    },
   });
+
+  Presets.fillSelect(presetSelect, Presets.currentId);
+  Presets.bindSelect(presetSelect, 'file-', () => {
+    player.setConfiguredFreq(parseInt(freqInput.value, 10) || 750);
+    syncSelectionFromInputs();
+  });
+
+  freqInput.addEventListener('input', () => {
+    player.setConfiguredFreq(parseInt(freqInput.value, 10) || 750);
+    updateFreqBar(player.getDetectedFreq());
+  });
+
+  applyFreqBtn?.addEventListener('click', () => {
+    const detected = player.getDetectedFreq();
+    if (detected) {
+      freqInput.value = String(detected);
+      player.setConfiguredFreq(detected);
+      updateFreqBar(detected);
+    }
+  });
+
+  async function handleFile(file) {
+    if (!file) {
+      player.cleanup();
+      playerCard.classList.add('hidden');
+      updateFreqBar(null);
+      return;
+    }
+    try {
+      player.setConfiguredFreq(parseInt(freqInput.value, 10) || 750);
+      const info = await player.loadFromFile(file);
+      fileMeta.textContent =
+        file.name + ' \u00b7 ' + App.fmtTime(info.duration) + ' \u00b7 ' +
+        info.sampleRate + ' Hz \u00b7 ' + info.channels + ' Kanal(e)';
+      updateFreqBar(info.detectedFreq);
+      const p = Presets.get(Presets.currentId);
+      if (p?.offset) offsetInput.value = String(p.offset);
+      if (p?.length) lengthInput.value = String(p.length);
+      else {
+        offsetInput.value = '0';
+        lengthInput.value = '';
+      }
+      playerCard.classList.remove('hidden');
+    } catch (err) {
+      player.cleanup();
+      fileMeta.textContent = 'Wellenform konnte nicht geladen werden: ' + err.message;
+      playerCard.classList.remove('hidden');
+    }
+  }
 
   function syncSelectionFromInputs() {
     const dur = player.getDuration();
@@ -56,26 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
     inputSyncTimer = setTimeout(syncSelectionFromInputs, 200);
   });
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
-    if (!file) {
-      player.cleanup();
-      playerCard.classList.add('hidden');
-      return;
-    }
-    try {
-      const info = await player.loadFromFile(file);
-      fileMeta.textContent =
-        file.name + ' \u00b7 ' + App.fmtTime(info.duration) + ' \u00b7 ' +
-        info.sampleRate + ' Hz \u00b7 ' + info.channels + ' Kanal(e)';
-      offsetInput.value = '0';
-      lengthInput.value = '';
-      playerCard.classList.remove('hidden');
-    } catch (err) {
-      player.cleanup();
-      fileMeta.textContent = 'Wellenform konnte nicht geladen werden: ' + err.message;
-      playerCard.classList.remove('hidden');
-    }
+  fileInput.addEventListener('change', () => handleFile(fileInput.files?.[0]));
+  bindFileDrop(dropZone, fileInput, handleFile);
+
+  document.getElementById('file-zoom-selection')?.addEventListener('click', () => {
+    player.zoomToSelection();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -95,7 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
     fd.append('offset', offsetInput.value || '0');
     const len = lengthInput.value;
     if (len) fd.append('length', len);
-    fd.append('freq', document.getElementById('file-freq').value || '750');
+    fd.append('freq', freqInput.value || '750');
+    fd.append('auto_freq', document.getElementById('file-auto-freq').checked ? 'true' : 'false');
     const wpm = document.getElementById('file-wpm').value;
     if (wpm) fd.append('wpm', wpm);
     fd.append('auto_wpm', document.getElementById('file-auto-wpm').checked ? 'true' : 'false');
@@ -103,11 +162,21 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await App.fetchJson('/decode/file', { method: 'POST', body: fd });
       out.textContent = data.text || '(leer)';
+      player.drawSpectrumFromServer(data);
+      if (data.detected_freq != null) updateFreqBar(data.detected_freq);
+      if (data.freq_used != null && document.getElementById('file-auto-freq').checked) {
+        freqInput.value = String(data.freq_used);
+        updateFreqBar(data.detected_freq);
+      }
       meta.className = 'meta ok';
+      const freqInfo = data.freq_auto
+        ? 'Ton auto: ' + data.detected_freq + ' Hz (genutzt: ' + data.freq_used + ' Hz)'
+        : 'Ton erkannt: ' + data.detected_freq + ' Hz (eingestellt: ' + data.freq_used + ' Hz)';
       meta.textContent =
-        'Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
-        ' \u00b7 Dauer: ' + data.duration_seconds + 's \u00b7 Datei: ' +
-        data.input.filename + ' (' + data.input.duration_seconds + 's)';
+        'Preset: ' + (Presets.get(Presets.currentId)?.name || '') +
+        ' \u00b7 ' + freqInfo +
+        ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
+        ' \u00b7 Dauer: ' + data.duration_seconds + 's';
     } catch (err) {
       out.textContent = '';
       meta.className = 'meta error';
@@ -120,4 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('panelchange', (e) => {
     if (e.detail.id !== 'file') player.stop();
   });
+
+  updateFreqBar(null);
 });

@@ -10,8 +10,9 @@ from pydantic import BaseModel, Field
 from saq_decoder import __version__
 from saq_decoder.config import API_KEY
 from saq_decoder.gerke import gerke_available
+from saq_decoder.presets import list_presets
 from saq_decoder.transmit import generate_cw_wav, text_to_morse
-from saq_decoder.web.decode_handler import handle_decode_upload
+from saq_decoder.web.decode_handler import handle_analyze_upload, handle_decode_upload
 
 STATIC_DIR = Path(__file__).parent / "static"
 LIVE_MAX_BYTES = 10 * 1024 * 1024
@@ -43,6 +44,11 @@ class TransmitRequest(BaseModel):
     sample_rate: int = Field(default=8000, ge=4000, le=48000)
 
 
+@app.get("/presets")
+def presets():
+    return {"presets": list_presets()}
+
+
 @app.get("/health")
 def health():
     return {
@@ -61,13 +67,32 @@ def index():
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
+@app.post("/analyze")
+async def analyze_file(
+    file: UploadFile = File(...),
+    offset: float = Form(0),
+    length: float | None = Form(None),
+    center_hz: int | None = Form(None),
+    authorization: str | None = Header(None),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+):
+    _check_api_key(authorization, x_api_key)
+    return await handle_analyze_upload(
+        file,
+        offset=offset,
+        length=length,
+        center_hz=center_hz,
+    )
+
+
 @app.post("/decode")
 @app.post("/decode/file")
 async def decode_file(
     file: UploadFile = File(...),
     offset: float = Form(0),
     length: float | None = Form(None),
-    freq: int = Form(750),
+    freq: int | None = Form(750),
+    auto_freq: bool = Form(False),
     wpm: float | None = Form(None),
     auto_wpm: bool = Form(True),
     python_only: bool = Form(False),
@@ -81,6 +106,7 @@ async def decode_file(
         offset=offset,
         length=length,
         freq=freq,
+        auto_freq=auto_freq,
         wpm=wpm,
         auto_wpm=auto_wpm,
         python_only=python_only,
@@ -93,7 +119,8 @@ async def decode_live(
     file: UploadFile = File(...),
     offset: float = Form(0),
     length: float | None = Form(None),
-    freq: int = Form(750),
+    freq: int | None = Form(750),
+    auto_freq: bool = Form(False),
     wpm: float | None = Form(None),
     auto_wpm: bool = Form(True),
     python_only: bool = Form(False),
@@ -107,6 +134,7 @@ async def decode_live(
         offset=offset,
         length=length,
         freq=freq,
+        auto_freq=auto_freq,
         wpm=wpm,
         auto_wpm=auto_wpm,
         python_only=python_only,

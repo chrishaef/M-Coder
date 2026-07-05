@@ -378,3 +378,177 @@ canvas.waveform.tall { height: 160px; }
   margin-bottom: 1rem;
   word-break: break-all;
 }
+
+/* Presets */
+.preset-block {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.preset-block select { margin-bottom: 0.35rem; }
+
+.preset-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Drag & drop */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.drop-zone.drop-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop-zone input[type="file"] {
+  margin-bottom: 0;
+}
+
+.drop-label {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.drop-hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+/* Zoom controls */
+.zoom-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.zoom-bar button {
+  padding: 0.35rem 0.65rem;
+  min-width: 2rem;
+  font-size: 0.9rem;
+}
+
+.view-range {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+/* Live decode extras */
+.level-meter-wrap {
+  margin-bottom: 0.75rem;
+}
+
+.level-meter-wrap label {
+  margin-bottom: 0.25rem;
+}
+
+.level-meter {
+  height: 6px;
+  background: var(--wave-bg);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.level-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--ok), var(--warn));
+  transition: width 0.08s linear;
+}
+
+.segment-badge {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.segment-badge strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Waveform + spectrum layout */
+.waveform-spectrum-row {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .waveform-spectrum-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spectrum-wrap {
+  background: var(--wave-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+}
+
+.spectrum-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 0.35rem 0.5rem 0;
+}
+
+canvas.spectrum {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 120px;
+}
+
+.freq-analysis-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.freq-analysis-bar strong {
+  color: var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+
+.freq-analysis-bar .muted { opacity: 0.5; }
+
+button.secondary.small {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+@media (max-width: 500px) {
+  button.secondary.small { margin-left: 0; width: 100%; }
+}
+

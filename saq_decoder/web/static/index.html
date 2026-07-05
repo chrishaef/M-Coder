@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>M-Coder – SAQ Morse</title>
+  <title>M-Coder – Morse CW Decoder</title>
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
@@ -37,14 +37,27 @@
     <section id="panel-live" class="panel">
       <div class="panel-header">
         <h2>Live Decode</h2>
-        <p>Mikrofon-Signal in Echtzeit dekodieren – ideal für Empfang über Lautsprecher oder direktes Audio.</p>
+        <p>Morse-CW live vom Mikrofon dekodieren – für Empfang über Lautsprecher, SDR-Audio oder Direktanschluss.</p>
       </div>
 
       <div class="card">
+        <div class="preset-block">
+          <label for="live-preset">Preset</label>
+          <select id="live-preset"></select>
+          <p class="preset-desc" id="live-preset-desc"></p>
+        </div>
+
         <div class="btn-row" style="margin-bottom:1rem">
           <button type="button" class="primary" id="live-start">Aufnahme starten</button>
           <button type="button" class="secondary danger" id="live-stop" disabled>Stoppen</button>
+          <button type="button" class="secondary" id="live-clear">Text leeren</button>
           <span class="status-pill" id="live-status">Bereit</span>
+          <span class="segment-badge">Segmente: <strong id="live-segments">0</strong></span>
+        </div>
+
+        <div class="level-meter-wrap">
+          <label>Pegel</label>
+          <div class="level-meter"><div class="level-fill" id="live-level"></div></div>
         </div>
 
         <div class="waveform-wrap live">
@@ -54,7 +67,7 @@
         <div class="row row-3">
           <div>
             <label for="live-freq">Tonfrequenz (Hz)</label>
-            <input type="number" id="live-freq" value="750" min="100" max="5000">
+            <input type="number" id="live-freq" value="600" min="100" max="5000">
           </div>
           <div>
             <label for="live-wpm">WPM (leer = auto)</label>
@@ -67,13 +80,18 @@
         </div>
 
         <div class="check">
+          <input type="checkbox" id="live-auto-freq">
+          <label for="live-auto-freq">Tonfrequenz automatisch erkennen</label>
+        </div>
+
+        <div class="check">
           <input type="checkbox" id="live-auto-wpm" checked>
           <label for="live-auto-wpm">WPM automatisch ermitteln</label>
         </div>
       </div>
 
       <div class="card">
-        <p class="card-title">Dekodiertes Signal</p>
+        <p class="card-title">Dekodierter Text (kumulativ)</p>
         <pre class="result" id="live-out">Noch kein Live-Decode gestartet.</pre>
         <div class="meta" id="live-meta"></div>
       </div>
@@ -83,17 +101,47 @@
     <section id="panel-file" class="panel active">
       <div class="panel-header">
         <h2>File Decode</h2>
-        <p>WAV-Aufnahmen laden, Bereich markieren und dekodieren – z. B. SAQ-VLF-Aufnahmen (17.2 kHz).</p>
+        <p>WAV-Aufnahmen laden, Bereich markieren und dekodieren – für SAQ, Amateurfunk, Beacon und mehr.</p>
       </div>
 
       <form id="file-form" class="card">
-        <label for="file-input">WAV-Aufnahme</label>
-        <input type="file" id="file-input" accept=".wav,audio/wav" required>
+        <div class="preset-block">
+          <label for="file-preset">Preset</label>
+          <select id="file-preset"></select>
+          <p class="preset-desc" id="file-preset-desc"></p>
+        </div>
+
+        <div id="file-drop" class="drop-zone">
+          <label for="file-input" class="drop-label">WAV-Aufnahme</label>
+          <p class="drop-hint">Datei wählen oder hierher ziehen (.wav)</p>
+          <input type="file" id="file-input" accept=".wav,audio/wav" required>
+        </div>
 
         <div id="file-player" class="hidden">
           <div class="file-meta" id="file-info"></div>
-          <div class="waveform-wrap" id="file-waveform-wrap">
-            <canvas id="file-waveform" class="waveform"></canvas>
+
+          <div class="freq-analysis-bar" id="file-freq-bar">
+            <span>Erkannte Tonfrequenz: <strong id="file-detected-freq">–</strong> Hz</span>
+            <span class="muted">|</span>
+            <span>Einstellung: <strong id="file-configured-freq">–</strong> Hz</span>
+            <button type="button" class="secondary small" id="file-apply-freq">Erkannte übernehmen</button>
+          </div>
+
+          <div class="waveform-spectrum-row">
+            <div class="waveform-wrap" id="file-waveform-wrap">
+              <canvas id="file-waveform" class="waveform"></canvas>
+            </div>
+            <div class="spectrum-wrap" id="file-spectrum-wrap">
+              <span class="spectrum-label">Spektrum</span>
+              <canvas id="file-spectrum" class="spectrum"></canvas>
+            </div>
+          </div>
+          <div class="zoom-bar">
+            <button type="button" class="secondary" id="file-zoom-out" title="Herauszoomen">&#8722;</button>
+            <button type="button" class="secondary" id="file-zoom-in" title="Hineinzoomen">+</button>
+            <button type="button" class="secondary" id="file-zoom-reset" title="Gesamtansicht">Reset</button>
+            <button type="button" class="secondary" id="file-zoom-selection" title="Auf Auswahl zoomen">Auswahl</button>
+            <span class="view-range" id="file-view-range">Gesamtansicht</span>
           </div>
           <div class="player-bar">
             <button type="button" class="secondary" id="file-btn-play">&#9654;</button>
@@ -106,7 +154,7 @@
             </span>
           </div>
           <div class="selection-info" id="file-selection-info">Kein Bereich markiert.</div>
-          <p class="hint">Klick = Abspielposition. Ziehen = Dekodier-Bereich markieren.</p>
+          <p class="hint">Mausrad = Zoom · Shift+Ziehen = Schwenken · Klick = Position · Ziehen = Bereich markieren</p>
         </div>
 
         <div class="row">
@@ -123,12 +171,17 @@
         <div class="row">
           <div>
             <label for="file-freq">Tonfrequenz (Hz)</label>
-            <input type="number" id="file-freq" value="750" min="100" max="5000">
+            <input type="number" id="file-freq" value="600" min="100" max="5000">
           </div>
           <div>
             <label for="file-wpm">WPM (leer = auto)</label>
             <input type="number" id="file-wpm" min="5" max="40" step="1" placeholder="auto">
           </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="file-auto-freq">
+          <label for="file-auto-freq">Tonfrequenz automatisch erkennen (beim Dekodieren)</label>
         </div>
 
         <div class="check">
@@ -154,8 +207,14 @@
       </div>
 
       <form id="transmit-form" class="card">
+        <div class="preset-block">
+          <label for="transmit-preset">Preset</label>
+          <select id="transmit-preset"></select>
+          <p class="preset-desc" id="transmit-preset-desc"></p>
+        </div>
+
         <label for="transmit-text">Nachricht</label>
-        <textarea id="transmit-text" placeholder="CQ CQ DE SAQ SAQ">CQ CQ DE TEST</textarea>
+        <textarea id="transmit-text" placeholder="CQ CQ DE TEST">CQ CQ DE TEST</textarea>
 
         <p class="card-title">Morse-Vorschau</p>
         <div class="morse-preview" id="transmit-morse-preview"></div>
@@ -163,7 +222,7 @@
         <div class="row row-3">
           <div>
             <label for="transmit-freq">Tonfrequenz (Hz)</label>
-            <input type="number" id="transmit-freq" value="750" min="100" max="5000">
+            <input type="number" id="transmit-freq" value="600" min="100" max="5000">
           </div>
           <div>
             <label for="transmit-wpm">WPM</label>
@@ -172,8 +231,8 @@
           <div>
             <label for="transmit-sr">Sample-Rate (Hz)</label>
             <select id="transmit-sr">
-              <option value="8000" selected>8000</option>
-              <option value="11025">11025</option>
+              <option value="8000">8000</option>
+              <option value="11025" selected>11025</option>
               <option value="22050">22050</option>
               <option value="44100">44100</option>
             </select>
@@ -193,6 +252,11 @@
         <div class="waveform-wrap" id="transmit-waveform-wrap">
           <canvas id="transmit-waveform" class="waveform"></canvas>
         </div>
+        <div class="zoom-bar">
+          <button type="button" class="secondary" id="transmit-zoom-out">&#8722;</button>
+          <button type="button" class="secondary" id="transmit-zoom-in">+</button>
+          <button type="button" class="secondary" id="transmit-zoom-reset">Reset</button>
+        </div>
         <div class="player-bar">
           <button type="button" class="secondary" id="transmit-btn-play">&#9654;</button>
           <span class="time-display">
@@ -206,6 +270,8 @@
   </main>
 
   <script src="/static/js/common.js"></script>
+  <script src="/static/js/presets.js"></script>
+  <script src="/static/js/audio-analysis.js"></script>
   <script src="/static/js/waveform.js"></script>
   <script src="/static/js/file-decode.js"></script>
   <script src="/static/js/live-decode.js"></script>

@@ -6,7 +6,8 @@ from pathlib import Path
 class DecodeOptions:
     offset: float = 0.0
     length: float | None = None
-    freq: int = 750
+    freq: int | None = 750
+    auto_freq: bool = False
     wpm: float | None = None
     auto_wpm: bool = True
     python_only: bool = False
@@ -20,6 +21,9 @@ class DecodeResult:
     wpm: float
     engine: str  # "gerke" | "python"
     duration_seconds: float | None = None
+    detected_freq: int | None = None
+    freq_used: int | None = None
+    freq_auto: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -27,6 +31,9 @@ class DecodeResult:
             "wpm": self.wpm,
             "engine": self.engine,
             "duration_seconds": self.duration_seconds,
+            "detected_freq": self.detected_freq,
+            "freq_used": self.freq_used,
+            "freq_auto": self.freq_auto,
         }
 
 

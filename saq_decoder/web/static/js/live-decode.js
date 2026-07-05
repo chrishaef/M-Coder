@@ -1,16 +1,24 @@
-/** Live Decode – microphone capture with rolling decode */
+/** Live Decode – microphone capture with cumulative decode output */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const btnStart = document.getElementById('live-start');
   const btnStop = document.getElementById('live-stop');
+  const btnClear = document.getElementById('live-clear');
   const statusEl = document.getElementById('live-status');
   const out = document.getElementById('live-out');
   const meta = document.getElementById('live-meta');
   const canvas = document.getElementById('live-waveform');
   const ctx = canvas.getContext('2d');
   const decodeInterval = document.getElementById('live-interval');
+  const levelBar = document.getElementById('live-level');
+  const segmentCount = document.getElementById('live-segments');
+  const presetSelect = document.getElementById('live-preset');
 
   if (!btnStart) return;
+
+  await Presets.load();
+  Presets.fillSelect(presetSelect, Presets.currentId);
+  Presets.bindSelect(presetSelect, 'live-');
 
   let audioCtx = null;
   let analyser = null;
@@ -21,9 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let rafId = null;
   let decodeTimer = null;
   let running = false;
-  let lastText = '';
+  let accumulatedText = '';
+  let segmentsDecoded = 0;
   let decodeBusy = false;
   let mime = 'audio/webm';
+  let livePeaks = [];
 
   function drawLiveWaveform() {
     if (!analyser) return;
@@ -40,17 +50,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const buf = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteTimeDomainData(buf);
 
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      peak = Math.max(peak, Math.abs(buf[i] - 128));
+    }
+    livePeaks.push(peak / 128);
+    if (livePeaks.length > w) livePeaks.shift();
+
+    if (levelBar) {
+      const pct = Math.min(100, Math.round((peak / 128) * 140));
+      levelBar.style.width = pct + '%';
+    }
+
     ctx.fillStyle = '#0a0e14';
     ctx.fillRect(0, 0, w, h);
+
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = '#3dd68c';
     ctx.beginPath();
-    const slice = w / buf.length;
-    for (let i = 0; i < buf.length; i++) {
-      const v = buf[i] / 128;
-      const y = (v * h) / 2;
-      if (i === 0) ctx.moveTo(0, y);
-      else ctx.lineTo(i * slice, y);
+    const mid = h / 2;
+    for (let i = 0; i < livePeaks.length; i++) {
+      const y = mid - livePeaks[i] * mid * 0.9;
+      if (i === 0) ctx.moveTo(i, y);
+      else ctx.lineTo(i, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(61, 139, 253, 0.5)';
+    ctx.beginPath();
+    for (let i = 0; i < livePeaks.length; i++) {
+      const y = mid + livePeaks[i] * mid * 0.9;
+      if (i === 0) ctx.moveTo(i, y);
+      else ctx.lineTo(i, y);
     }
     ctx.stroke();
 
@@ -93,11 +124,13 @@ document.addEventListener('DOMContentLoaded', () => {
     meta.className = 'meta live';
     meta.textContent = 'Dekodiere Live-Segment\u2026';
 
+    const segLen = parseFloat(decodeInterval.value) || 4;
     const fd = new FormData();
     fd.append('file', wavBlob, 'live-chunk.wav');
     fd.append('offset', '0');
-    fd.append('length', String(parseFloat(decodeInterval.value) || 4));
+    fd.append('length', String(segLen));
     fd.append('freq', document.getElementById('live-freq').value || '750');
+    fd.append('auto_freq', document.getElementById('live-auto-freq').checked ? 'true' : 'false');
     const wpm = document.getElementById('live-wpm').value;
     if (wpm) fd.append('wpm', wpm);
     fd.append('auto_wpm', document.getElementById('live-auto-wpm').checked ? 'true' : 'false');
@@ -105,16 +138,23 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await App.fetchJson('/decode/live', { method: 'POST', body: fd });
       const text = (data.text || '').trim();
+      segmentsDecoded += 1;
+      if (segmentCount) segmentCount.textContent = String(segmentsDecoded);
+
       if (text) {
-        lastText = text;
-        out.textContent = text;
+        accumulatedText = Presets.mergeDecodeText(accumulatedText, text);
+        out.textContent = accumulatedText;
         meta.className = 'meta ok';
+        const freqPart = data.detected_freq != null
+          ? ' \u00b7 Ton erkannt: ' + data.detected_freq + ' Hz'
+          : '';
         meta.textContent =
-          'Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
-          ' \u00b7 Segment: ' + data.duration_seconds + 's';
+          'Preset: ' + (Presets.get(Presets.currentId)?.name || '') +
+          ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
+          freqPart + ' \u00b7 Segment #' + segmentsDecoded;
       } else {
         meta.className = 'meta';
-        meta.textContent = 'Kein Morse im aktuellen Segment erkannt.';
+        meta.textContent = 'Segment #' + segmentsDecoded + ': kein Morse erkannt.';
       }
     } catch (err) {
       meta.className = 'meta error';
@@ -159,7 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function startLive() {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
     } catch (err) {
       meta.className = 'meta error';
       meta.textContent = 'Mikrofon-Zugriff verweigert: ' + err.message;
@@ -178,12 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startRecorder();
     running = true;
+    livePeaks = [];
     btnStart.disabled = true;
     btnStop.disabled = false;
+    if (btnClear) btnClear.disabled = false;
     statusEl.textContent = 'Live';
     statusEl.className = 'status-pill recording';
-    out.textContent = 'Warte auf Signal\u2026';
-    lastText = '';
+    out.textContent = accumulatedText || 'Warte auf Signal\u2026';
     drawLiveWaveform();
 
     const intervalSec = parseFloat(decodeInterval.value) || 4;
@@ -211,10 +254,19 @@ document.addEventListener('DOMContentLoaded', () => {
     btnStop.disabled = true;
     statusEl.textContent = 'Bereit';
     statusEl.className = 'status-pill';
+    if (levelBar) levelBar.style.width = '0%';
   }
 
   btnStart.addEventListener('click', startLive);
   btnStop.addEventListener('click', stopLive);
+  btnClear?.addEventListener('click', () => {
+    accumulatedText = '';
+    segmentsDecoded = 0;
+    if (segmentCount) segmentCount.textContent = '0';
+    out.textContent = running ? 'Warte auf Signal\u2026' : 'Noch kein Live-Decode gestartet.';
+    meta.textContent = '';
+    meta.className = 'meta';
+  });
 
   window.addEventListener('panelchange', (e) => {
     if (e.detail.id !== 'live' && running) stopLive();
