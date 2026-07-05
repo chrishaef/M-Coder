@@ -102,7 +102,7 @@ curl -F "file=@aufnahme.wav" -F "offset=708" -F "length=275" \
 ## Projektstruktur
 
 ```
-saq-morse-decoder/
+M-Coder/
 ├── saq_decoder/          # Python-Paket
 │   ├── cli.py            # Offline-CLI
 │   ├── core.py           # Dekodier-Logik
