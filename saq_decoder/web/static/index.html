@@ -3,658 +3,212 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SAQ Morse Decoder</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --card: #1a2332;
-      --text: #e8eef5;
-      --muted: #8b9cb3;
-      --accent: #3d8bfd;
-      --ok: #3dd68c;
-      --err: #f87171;
-      --wave: #5b9cf5;
-      --wave-bg: #0a0e14;
-      --playhead: #3dd68c;
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      min-height: 100vh;
-      line-height: 1.5;
-    }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 2rem 1rem 4rem; }
-    h1 { font-size: 1.6rem; margin: 0 0 0.25rem; }
-    .sub { color: var(--muted); margin-bottom: 2rem; }
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
-    input[type="file"], input[type="number"], input[type="password"] {
-      width: 100%;
-      padding: 0.6rem 0.75rem;
-      border: 1px solid #2d3a4f;
-      border-radius: 8px;
-      background: #0f1419;
-      color: var(--text);
-      margin-bottom: 1rem;
-    }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 500px) { .row { grid-template-columns: 1fr; } }
-    .check { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-    .check input { width: auto; margin: 0; }
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    button.secondary {
-      background: #2d3a4f;
-      color: var(--text);
-    }
-    button.secondary:hover { background: #3a4a63; }
-    button:hover:not(:disabled) { filter: brightness(1.08); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-full { width: 100%; }
-    pre {
-      background: #0a0e14;
-      border-radius: 8px;
-      padding: 1rem;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.9rem;
-      min-height: 4rem;
-    }
-    .meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; }
-    .error { color: var(--err); }
-    .ok { color: var(--ok); }
-    .hidden { display: none !important; }
-
-    #waveform-wrap {
-      position: relative;
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--wave-bg);
-      border: 1px solid #2d3a4f;
-      margin-bottom: 0.75rem;
-      cursor: crosshair;
-      touch-action: none;
-    }
-    #waveform {
-      display: block;
-      width: 100%;
-      height: 140px;
-    }
-    .player-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .player-bar button {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
-      min-width: 2.75rem;
-    }
-    .time-display {
-      font-variant-numeric: tabular-nums;
-      font-size: 0.95rem;
-      min-width: 9rem;
-    }
-    .time-display .muted { color: var(--muted); }
-    .selection-info {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
-    }
-    .selection-info strong { color: var(--accent); font-weight: 600; }
-    .hint {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin: 0 0 1rem;
-    }
-    .file-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 1rem;
-    }
-  </style>
+  <title>M-Coder – SAQ Morse</title>
+  <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
-  <div class="wrap">
-    <h1>SAQ Morse Decoder</h1>
-    <p class="sub">VLF-Aufnahmen des schwedischen Senders SAQ (17.2 kHz) dekodieren</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-icon">CW</span>
+        M-Coder
+      </div>
+      <nav class="tabs">
+        <button type="button" data-panel="live">Live Decode</button>
+        <button type="button" data-panel="file" class="active">File Decode</button>
+        <button type="button" data-panel="transmit">Transmit</button>
+      </nav>
+      <div class="topbar-actions">
+        <button type="button" class="btn-icon" id="btn-settings" title="Einstellungen">&#9881;</button>
+      </div>
+    </div>
+  </header>
 
-    <form id="form" class="card">
-      <label for="file">WAV-Aufnahme</label>
-      <input type="file" id="file" name="file" accept=".wav,audio/wav" required>
+  <div class="settings-backdrop" id="settings-backdrop"></div>
+  <aside class="settings-drawer" id="settings-drawer">
+    <h3 style="margin:0 0 1rem">Einstellungen</h3>
+    <label for="settings-apikey">API-Schlüssel</label>
+    <input type="password" id="settings-apikey" placeholder="Optional (SAQ_API_KEY)">
+    <button type="button" class="primary btn-full" id="settings-save">Speichern</button>
+  </aside>
 
-      <div id="player-card" class="hidden">
-        <div class="file-meta" id="file-meta"></div>
-        <div id="waveform-wrap">
-          <canvas id="waveform"></canvas>
+  <main class="wrap">
+    <!-- Live Decode -->
+    <section id="panel-live" class="panel">
+      <div class="panel-header">
+        <h2>Live Decode</h2>
+        <p>Mikrofon-Signal in Echtzeit dekodieren – ideal für Empfang über Lautsprecher oder direktes Audio.</p>
+      </div>
+
+      <div class="card">
+        <div class="btn-row" style="margin-bottom:1rem">
+          <button type="button" class="primary" id="live-start">Aufnahme starten</button>
+          <button type="button" class="secondary danger" id="live-stop" disabled>Stoppen</button>
+          <span class="status-pill" id="live-status">Bereit</span>
+        </div>
+
+        <div class="waveform-wrap live">
+          <canvas id="live-waveform" class="waveform tall"></canvas>
+        </div>
+
+        <div class="row row-3">
+          <div>
+            <label for="live-freq">Tonfrequenz (Hz)</label>
+            <input type="number" id="live-freq" value="750" min="100" max="5000">
+          </div>
+          <div>
+            <label for="live-wpm">WPM (leer = auto)</label>
+            <input type="number" id="live-wpm" min="5" max="40" step="1" placeholder="auto">
+          </div>
+          <div>
+            <label for="live-interval">Segment (Sek.)</label>
+            <input type="number" id="live-interval" value="4" min="2" max="30" step="1">
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="live-auto-wpm" checked>
+          <label for="live-auto-wpm">WPM automatisch ermitteln</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Dekodiertes Signal</p>
+        <pre class="result" id="live-out">Noch kein Live-Decode gestartet.</pre>
+        <div class="meta" id="live-meta"></div>
+      </div>
+    </section>
+
+    <!-- File Decode -->
+    <section id="panel-file" class="panel active">
+      <div class="panel-header">
+        <h2>File Decode</h2>
+        <p>WAV-Aufnahmen laden, Bereich markieren und dekodieren – z. B. SAQ-VLF-Aufnahmen (17.2 kHz).</p>
+      </div>
+
+      <form id="file-form" class="card">
+        <label for="file-input">WAV-Aufnahme</label>
+        <input type="file" id="file-input" accept=".wav,audio/wav" required>
+
+        <div id="file-player" class="hidden">
+          <div class="file-meta" id="file-info"></div>
+          <div class="waveform-wrap" id="file-waveform-wrap">
+            <canvas id="file-waveform" class="waveform"></canvas>
+          </div>
+          <div class="player-bar">
+            <button type="button" class="secondary" id="file-btn-play">&#9654;</button>
+            <button type="button" class="secondary" id="file-btn-play-sel">&#9654; Auswahl</button>
+            <button type="button" class="secondary" id="file-btn-clear-sel">&#10005;</button>
+            <span class="time-display">
+              <span id="file-time-current">0:00.0</span>
+              <span class="muted"> / </span>
+              <span id="file-time-total">0:00.0</span>
+            </span>
+          </div>
+          <div class="selection-info" id="file-selection-info">Kein Bereich markiert.</div>
+          <p class="hint">Klick = Abspielposition. Ziehen = Dekodier-Bereich markieren.</p>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="file-offset">Offset (Sekunden)</label>
+            <input type="number" id="file-offset" value="0" min="0" step="0.1">
+          </div>
+          <div>
+            <label for="file-length">Länge (Sek., leer = Rest)</label>
+            <input type="number" id="file-length" min="0.1" step="0.1" placeholder="z.B. 275">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="file-freq">Tonfrequenz (Hz)</label>
+            <input type="number" id="file-freq" value="750" min="100" max="5000">
+          </div>
+          <div>
+            <label for="file-wpm">WPM (leer = auto)</label>
+            <input type="number" id="file-wpm" min="5" max="40" step="1" placeholder="auto">
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="file-auto-wpm" checked>
+          <label for="file-auto-wpm">WPM automatisch ermitteln</label>
+        </div>
+
+        <button type="submit" class="primary btn-full" id="file-btn">Dekodieren</button>
+      </form>
+
+      <div class="card">
+        <p class="card-title">Ergebnis</p>
+        <pre class="result" id="file-out">Noch keine Dekodierung.</pre>
+        <div class="meta" id="file-meta-result"></div>
+      </div>
+    </section>
+
+    <!-- Transmit -->
+    <section id="panel-transmit" class="panel">
+      <div class="panel-header">
+        <h2>Transmit</h2>
+        <p>Text in Morse-CW umwandeln und als Audio erzeugen – zum Testen oder für Wiedergabe über Lautsprecher.</p>
+      </div>
+
+      <form id="transmit-form" class="card">
+        <label for="transmit-text">Nachricht</label>
+        <textarea id="transmit-text" placeholder="CQ CQ DE SAQ SAQ">CQ CQ DE TEST</textarea>
+
+        <p class="card-title">Morse-Vorschau</p>
+        <div class="morse-preview" id="transmit-morse-preview"></div>
+
+        <div class="row row-3">
+          <div>
+            <label for="transmit-freq">Tonfrequenz (Hz)</label>
+            <input type="number" id="transmit-freq" value="750" min="100" max="5000">
+          </div>
+          <div>
+            <label for="transmit-wpm">WPM</label>
+            <input type="number" id="transmit-wpm" value="20" min="5" max="40" step="1">
+          </div>
+          <div>
+            <label for="transmit-sr">Sample-Rate (Hz)</label>
+            <select id="transmit-sr">
+              <option value="8000" selected>8000</option>
+              <option value="11025">11025</option>
+              <option value="22050">22050</option>
+              <option value="44100">44100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="submit" class="primary" id="transmit-btn">CW erzeugen</button>
+          <button type="button" class="secondary" id="transmit-download">WAV speichern</button>
+        </div>
+        <div class="meta" id="transmit-meta"></div>
+      </form>
+
+      <div id="transmit-player" class="card hidden">
+        <p class="card-title">Vorschau</p>
+        <div class="file-meta" id="transmit-info"></div>
+        <div class="waveform-wrap" id="transmit-waveform-wrap">
+          <canvas id="transmit-waveform" class="waveform"></canvas>
         </div>
         <div class="player-bar">
-          <button type="button" id="btn-play" class="secondary" title="Wiedergabe">&#9654;</button>
-          <button type="button" id="btn-play-sel" class="secondary" title="Auswahl abspielen">&#9654; Auswahl</button>
-          <button type="button" id="btn-clear-sel" class="secondary" title="Auswahl aufheben">&#10005;</button>
+          <button type="button" class="secondary" id="transmit-btn-play">&#9654;</button>
           <span class="time-display">
-            <span id="time-current">0:00.0</span>
+            <span id="transmit-time-current">0:00.0</span>
             <span class="muted"> / </span>
-            <span id="time-total">0:00.0</span>
+            <span id="transmit-time-total">0:00.0</span>
           </span>
         </div>
-        <div class="selection-info" id="selection-info">Kein Bereich markiert.</div>
-        <p class="hint">Klick setzt die Abspielposition. Ziehen markiert den Dekodier-Abschnitt. Rand der Markierung verschieben oder Bereich innen ziehen.</p>
       </div>
+    </section>
+  </main>
 
-      <div class="row">
-        <div>
-          <label for="offset">Offset (Sekunden)</label>
-          <input type="number" id="offset" name="offset" value="0" min="0" step="0.1">
-        </div>
-        <div>
-          <label for="length">Länge (Sek., leer = Rest der Datei)</label>
-          <input type="number" id="length" name="length" min="0.1" step="0.1" placeholder="z.B. 275">
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label for="freq">Tonfrequenz (Hz)</label>
-          <input type="number" id="freq" name="freq" value="750" min="100" max="5000">
-        </div>
-        <div>
-          <label for="wpm">WPM (leer = automatisch)</label>
-          <input type="number" id="wpm" name="wpm" min="5" max="40" step="1" placeholder="auto">
-        </div>
-      </div>
-
-      <label for="apikey">API-Schlüssel (optional)</label>
-      <input type="password" id="apikey" name="apikey" placeholder="Nur wenn SAQ_API_KEY gesetzt ist">
-
-      <div class="check">
-        <input type="checkbox" id="auto_wpm" name="auto_wpm" checked>
-        <label for="auto_wpm" style="margin:0">WPM automatisch ermitteln (empfohlen bei markiertem Abschnitt)</label>
-      </div>
-
-      <button type="submit" id="btn" class="btn-full">Dekodieren</button>
-    </form>
-
-    <div class="card">
-      <label>Ergebnis</label>
-      <pre id="out">Noch keine Dekodierung.</pre>
-      <div class="meta" id="meta"></div>
-    </div>
-  </div>
-
-  <script>
-    const form = document.getElementById('form');
-    const out = document.getElementById('out');
-    const meta = document.getElementById('meta');
-    const btn = document.getElementById('btn');
-    const fileInput = document.getElementById('file');
-    const offsetInput = document.getElementById('offset');
-    const lengthInput = document.getElementById('length');
-    const playerCard = document.getElementById('player-card');
-    const fileMeta = document.getElementById('file-meta');
-    const canvas = document.getElementById('waveform');
-    const ctx = canvas.getContext('2d');
-    const btnPlay = document.getElementById('btn-play');
-    const btnPlaySel = document.getElementById('btn-play-sel');
-    const btnClearSel = document.getElementById('btn-clear-sel');
-    const timeCurrent = document.getElementById('time-current');
-    const timeTotal = document.getElementById('time-total');
-    const selectionInfo = document.getElementById('selection-info');
-    const waveformWrap = document.getElementById('waveform-wrap');
-
-    let audioEl = null;
-    let audioUrl = null;
-    let duration = 0;
-    let peaks = [];
-    let selection = null;
-    let dragMode = null;
-    let dragAnchor = 0;
-    let dragOriginSel = null;
-    let dragStartX = 0;
-    let playSelectionOnly = false;
-    let rafId = null;
-    let inputSyncTimer = null;
-
-    function fmtTime(sec) {
-      if (!Number.isFinite(sec) || sec < 0) sec = 0;
-      const m = Math.floor(sec / 60);
-      const s = Math.floor(sec % 60);
-      const d = Math.floor((sec % 1) * 10);
-      return m + ':' + String(s).padStart(2, '0') + '.' + d;
-    }
-
-    function clamp(v, lo, hi) {
-      return Math.max(lo, Math.min(hi, v));
-    }
-
-    function timeFromX(x) {
-      const w = canvas.clientWidth;
-      if (!w || !duration) return 0;
-      return clamp(x / w, 0, 1) * duration;
-    }
-
-    function xFromTime(t) {
-      const w = canvas.clientWidth;
-      if (!duration) return 0;
-      return (t / duration) * w;
-    }
-
-    function normalizeSelection(start, end) {
-      let a = clamp(Math.min(start, end), 0, duration);
-      let b = clamp(Math.max(start, end), 0, duration);
-      if (b - a < 0.05) b = Math.min(duration, a + 0.05);
-      return { start: a, end: b };
-    }
-
-    function hasSelection() {
-      if (!selection || !duration) return false;
-      const len = selection.end - selection.start;
-      if (len <= 0.05) return false;
-      return selection.start > 0.01 || selection.end < duration - 0.01;
-    }
-
-    function updateSelectionInfo() {
-      btnPlaySel.disabled = !hasSelection();
-      if (!duration) {
-        selectionInfo.textContent = 'Kein Bereich markiert.';
-        return;
-      }
-      if (hasSelection()) {
-        const len = selection.end - selection.start;
-        selectionInfo.innerHTML =
-          'Markierter Bereich: <strong>' + fmtTime(selection.start) + ' &ndash; ' + fmtTime(selection.end) +
-          '</strong> (' + len.toFixed(1) + ' s)';
-      } else {
-        selectionInfo.textContent = 'Kein Bereich markiert &ndash; ganze Datei (' + fmtTime(duration) + ') wird dekodiert.';
-      }
-    }
-
-    function syncInputsFromSelection() {
-      if (!hasSelection()) {
-        offsetInput.value = '0';
-        lengthInput.value = '';
-      } else {
-        offsetInput.value = selection.start.toFixed(1);
-        lengthInput.value = (selection.end - selection.start).toFixed(1);
-      }
-      updateSelectionInfo();
-      drawWaveform();
-    }
-
-    function syncSelectionFromInputs() {
-      if (!duration) return;
-      const off = parseFloat(offsetInput.value) || 0;
-      const lenRaw = lengthInput.value.trim();
-      if (!lenRaw) {
-        selection = null;
-      } else {
-        const len = parseFloat(lenRaw) || 0;
-        selection = normalizeSelection(off, off + len);
-      }
-      updateSelectionInfo();
-      drawWaveform();
-    }
-
-    function setPlayButton(playing) {
-      btnPlay.textContent = playing ? '\u23F8' : '\u25B6';
-      btnPlay.title = playing ? 'Pause' : 'Wiedergabe';
-    }
-
-    function stopPlayback() {
-      playSelectionOnly = false;
-      if (audioEl) {
-        audioEl.pause();
-        setPlayButton(false);
-      }
-      cancelAnimationFrame(rafId);
-      drawWaveform();
-    }
-
-    function tickPlayhead() {
-      if (!audioEl || audioEl.paused) return;
-      if (playSelectionOnly && selection && audioEl.currentTime >= selection.end - 0.02) {
-        audioEl.pause();
-        audioEl.currentTime = selection.end;
-        playSelectionOnly = false;
-        setPlayButton(false);
-      }
-      timeCurrent.textContent = fmtTime(audioEl.currentTime);
-      drawWaveform(audioEl.currentTime);
-      rafId = requestAnimationFrame(tickPlayhead);
-    }
-
-    function drawWaveform(playhead) {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (!w || !h) return;
-
-      if (canvas.width !== w * devicePixelRatio || canvas.height !== h * devicePixelRatio) {
-        canvas.width = w * devicePixelRatio;
-        canvas.height = h * devicePixelRatio;
-        ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-      }
-
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = '#0a0e14';
-      ctx.fillRect(0, 0, w, h);
-
-      const mid = h / 2;
-      const amp = h * 0.42;
-
-      if (peaks.length) {
-        ctx.beginPath();
-        ctx.moveTo(0, mid);
-        for (let i = 0; i < peaks.length; i++) {
-          const x = (i / (peaks.length - 1)) * w;
-          const y = mid - peaks[i] * amp;
-          ctx.lineTo(x, y);
-        }
-        for (let i = peaks.length - 1; i >= 0; i--) {
-          const x = (i / (peaks.length - 1)) * w;
-          const y = mid + peaks[i] * amp;
-          ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(91, 156, 245, 0.35)';
-        ctx.fill();
-        ctx.strokeStyle = '#5b9cf5';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      if (selection && duration) {
-        const x0 = xFromTime(selection.start);
-        const x1 = xFromTime(selection.end);
-        ctx.fillStyle = 'rgba(61, 139, 253, 0.35);
-        ctx.fillRect(x0, 0, Math.max(1, x1 - x0), h);
-      }
-
-      if (playhead != null && Number.isFinite(playhead)) {
-        const px = xFromTime(playhead);
-        ctx.strokeStyle = '#3dd68c';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(px, 0);
-        ctx.lineTo(px, h);
-        ctx.stroke();
-      }
-    }
-
-    function computePeaks(buffer, buckets) {
-      const data = buffer.getChannelData(0);
-      const block = Math.max(1, Math.floor(data.length / buckets));
-      const result = [];
-      for (let i = 0; i < buckets; i++) {
-        let peak = 0;
-        const start = i * block;
-        const end = Math.min(data.length, start + block);
-        for (let j = start; j < end; j++) {
-          const v = Math.abs(data[j]);
-          if (v > peak) peak = v;
-        }
-        result.push(peak);
-      }
-      return result;
-    }
-
-    function cleanupAudio() {
-      stopPlayback();
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      audioUrl = null;
-      if (audioEl) {
-        audioEl.remove();
-        audioEl = null;
-      }
-      duration = 0;
-      peaks = [];
-      selection = null;
-      playerCard.classList.add('hidden');
-    }
-
-    async function loadAudioFile(file) {
-      cleanupAudio();
-      if (!file) return;
-
-      audioUrl = URL.createObjectURL(file);
-      audioEl = new Audio(audioUrl);
-      audioEl.preload = 'auto';
-
-      audioEl.addEventListener('loadedmetadata', () => {
-        duration = audioEl.duration || 0;
-        timeTotal.textContent = fmtTime(duration);
-        timeCurrent.textContent = fmtTime(0);
-        updateSelectionInfo();
-        drawWaveform();
-      });
-
-      audioEl.addEventListener('timeupdate', () => {
-        if (!audioEl.paused) timeCurrent.textContent = fmtTime(audioEl.currentTime);
-      });
-
-      audioEl.addEventListener('ended', () => {
-        setPlayButton(false);
-        drawWaveform();
-      });
-
-      const arrayBuffer = await file.arrayBuffer();
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const buffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-      await audioCtx.close();
-
-      duration = buffer.duration;
-      peaks = computePeaks(buffer, 1200);
-      timeTotal.textContent = fmtTime(duration);
-      timeCurrent.textContent = fmtTime(0);
-
-      fileMeta.textContent = file.name + ' \u00b7 ' + fmtTime(duration) + ' \u00b7 ' +
-        buffer.sampleRate + ' Hz \u00b7 ' + buffer.numberOfChannels + ' Kanal(e)';
-
-      playerCard.classList.remove('hidden');
-      selection = null;
-      offsetInput.value = '0';
-      lengthInput.value = '';
-      updateSelectionInfo();
-      drawWaveform();
-
-      window.addEventListener('resize', () => drawWaveform());
-    }
-
-    function hitTestSelection(x) {
-      if (!selection || !duration) return null;
-      const edge = 8;
-      const xs = xFromTime(selection.start);
-      const xe = xFromTime(selection.end);
-      if (Math.abs(x - xs) <= edge) return 'resize-start';
-      if (Math.abs(x - xe) <= edge) return 'resize-end';
-      if (x >= xs && x <= xe) return 'move';
-      return null;
-    }
-
-    function onPointerDown(e) {
-      if (!duration) return;
-      e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      dragStartX = x;
-      const t = timeFromX(x);
-      const hit = hitTestSelection(x);
-
-      if (hit === 'resize-start') {
-        dragMode = 'resize-start';
-      } else if (hit === 'resize-end') {
-        dragMode = 'resize-end';
-      } else if (hit === 'move') {
-        dragMode = 'move';
-        dragOriginSel = { ...selection };
-        dragAnchor = t;
-      } else {
-        dragMode = 'new';
-        dragAnchor = t;
-        selection = normalizeSelection(t, t);
-      }
-
-      waveformWrap.setPointerCapture(e.pointerId);
-    }
-
-    function onPointerMove(e) {
-      if (!dragMode || !duration) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const t = timeFromX(x);
-
-      if (dragMode === 'new') {
-        selection = normalizeSelection(dragAnchor, t);
-      } else if (dragMode === 'resize-start') {
-        selection = normalizeSelection(t, selection.end);
-      } else if (dragMode === 'resize-end') {
-        selection = normalizeSelection(selection.start, t);
-      } else if (dragMode === 'move' && dragOriginSel) {
-        const len = dragOriginSel.end - dragOriginSel.start;
-        let newStart = dragOriginSel.start + (t - dragAnchor);
-        if (newStart < 0) newStart = 0;
-        if (newStart + len > duration) newStart = duration - len;
-        selection = { start: newStart, end: newStart + len };
-      }
-
-      syncInputsFromSelection();
-      drawWaveform();
-    }
-
-    function onPointerUp(e) {
-      if (!dragMode) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-
-      if (dragMode === 'new' && Math.abs(x - dragStartX) < 4) {
-        if (audioEl) {
-          audioEl.currentTime = timeFromX(x);
-          timeCurrent.textContent = fmtTime(audioEl.currentTime);
-        }
-        selection = null;
-        syncInputsFromSelection();
-      } else {
-        syncInputsFromSelection();
-      }
-
-      dragMode = null;
-      dragOriginSel = null;
-    }
-
-    btnPlay.addEventListener('click', () => {
-      if (!audioEl) return;
-      if (audioEl.paused) {
-        playSelectionOnly = false;
-        audioEl.play();
-        setPlayButton(true);
-        rafId = requestAnimationFrame(tickPlayhead);
-      } else {
-        audioEl.pause();
-        setPlayButton(false);
-      }
-    });
-
-    btnPlaySel.addEventListener('click', () => {
-      if (!audioEl || !hasSelection()) return;
-      playSelectionOnly = true;
-      audioEl.currentTime = selection.start;
-      audioEl.play();
-      setPlayButton(true);
-      rafId = requestAnimationFrame(tickPlayhead);
-    });
-
-    btnClearSel.addEventListener('click', () => {
-      selection = null;
-      syncInputsFromSelection();
-    });
-
-    waveformWrap.addEventListener('pointerdown', onPointerDown);
-    waveformWrap.addEventListener('pointermove', onPointerMove);
-    waveformWrap.addEventListener('pointerup', onPointerUp);
-    waveformWrap.addEventListener('pointercancel', onPointerUp);
-
-    offsetInput.addEventListener('input', () => {
-      clearTimeout(inputSyncTimer);
-      inputSyncTimer = setTimeout(syncSelectionFromInputs, 200);
-    });
-    lengthInput.addEventListener('input', () => {
-      clearTimeout(inputSyncTimer);
-      inputSyncTimer = setTimeout(syncSelectionFromInputs, 200);
-    });
-
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) {
-        cleanupAudio();
-        return;
-      }
-      try {
-        await loadAudioFile(file);
-      } catch (err) {
-        cleanupAudio();
-        fileMeta.textContent = 'Wellenform konnte nicht geladen werden: ' + err.message;
-        playerCard.classList.remove('hidden');
-      }
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      btn.disabled = true;
-      out.textContent = 'Dekodiere\u2026';
-      meta.textContent = '';
-      meta.className = 'meta';
-
-      syncSelectionFromInputs();
-
-      const fd = new FormData();
-      const file = fileInput.files[0];
-      if (!file) return;
-      fd.append('file', file);
-      fd.append('offset', offsetInput.value || '0');
-      const len = lengthInput.value;
-      if (len) fd.append('length', len);
-      fd.append('freq', document.getElementById('freq').value || '750');
-      const wpm = document.getElementById('wpm').value;
-      if (wpm) fd.append('wpm', wpm);
-      fd.append('auto_wpm', document.getElementById('auto_wpm').checked ? 'true' : 'false');
-
-      const headers = {};
-      const key = document.getElementById('apikey').value.trim();
-      if (key) headers['X-API-Key'] = key;
-
-      try {
-        const res = await fetch('/decode', { method: 'POST', body: fd, headers });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || res.statusText);
-        out.textContent = data.text || '(leer)';
-        meta.className = 'meta ok';
-        meta.textContent = 'Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
-          ' \u00b7 Dauer: ' + data.duration_seconds + 's \u00b7 Datei: ' +
-          data.input.filename + ' (' + data.input.duration_seconds + 's)';
-      } catch (err) {
-        out.textContent = '';
-        meta.className = 'meta error';
-        meta.textContent = 'Fehler: ' + err.message;
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  </script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/waveform.js"></script>
+  <script src="/static/js/file-decode.js"></script>
+  <script src="/static/js/live-decode.js"></script>
+  <script src="/static/js/transmit.js"></script>
 </body>
 </html>

@@ -45,4 +45,4 @@ where = ["."]
 include = ["saq_decoder*"]
 
 [tool.setuptools.package-data]
-saq_decoder = ["web/static/*"]
+saq_decoder = ["web/static/**/*"]

@@ -1,23 +1,24 @@
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from saq_decoder import __version__
-from saq_decoder.config import API_KEY, MAX_UPLOAD_BYTES
-from saq_decoder.core import decode, wav_info
+from saq_decoder.config import API_KEY
 from saq_decoder.gerke import gerke_available
-from saq_decoder.models import DecodeOptions
+from saq_decoder.transmit import generate_cw_wav, text_to_morse
+from saq_decoder.web.decode_handler import handle_decode_upload
 
 STATIC_DIR = Path(__file__).parent / "static"
+LIVE_MAX_BYTES = 10 * 1024 * 1024
 
 app = FastAPI(
-    title="SAQ Morse Decoder",
-    description="Dekodiert Aufnahmen des schwedischen VLF-Senders SAQ (17.2 kHz CW).",
+    title="M-Coder",
+    description="SAQ Morse Decoder – Live Decode, File Decode, Transmit",
     version=__version__,
 )
 
@@ -35,12 +36,20 @@ def _check_api_key(authorization: str | None, x_api_key: str | None) -> None:
         raise HTTPException(status_code=401, detail="Ungültiger API-Schlüssel")
 
 
+class TransmitRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    freq: int = Field(default=750, ge=100, le=5000)
+    wpm: float = Field(default=20, ge=5, le=40)
+    sample_rate: int = Field(default=8000, ge=4000, le=48000)
+
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
         "version": __version__,
         "gerke_available": gerke_available(),
+        "features": ["live_decode", "file_decode", "transmit"],
     }
 
 
@@ -48,12 +57,13 @@ def health():
 def index():
     html_path = STATIC_DIR / "index.html"
     if not html_path.exists():
-        return HTMLResponse("<h1>SAQ Decoder API</h1><p>POST /decode</p>")
+        return HTMLResponse("<h1>M-Coder API</h1><p>POST /decode/file · /decode/live · /transmit</p>")
     return HTMLResponse(html_path.read_text(encoding="utf-8"))
 
 
 @app.post("/decode")
-async def decode_upload(
+@app.post("/decode/file")
+async def decode_file(
     file: UploadFile = File(...),
     offset: float = Form(0),
     length: float | None = Form(None),
@@ -66,51 +76,70 @@ async def decode_upload(
     x_api_key: str | None = Header(None, alias="X-API-Key"),
 ):
     _check_api_key(authorization, x_api_key)
+    return await handle_decode_upload(
+        file,
+        offset=offset,
+        length=length,
+        freq=freq,
+        wpm=wpm,
+        auto_wpm=auto_wpm,
+        python_only=python_only,
+        raw=raw,
+    )
 
-    if not file.filename or not file.filename.lower().endswith(".wav"):
-        raise HTTPException(status_code=400, detail="Nur .wav-Dateien werden unterstützt")
 
-    data = await file.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Datei zu groß (max. {MAX_UPLOAD_BYTES // (1024*1024)} MB)",
-        )
-    if len(data) < 44:
-        raise HTTPException(status_code=400, detail="Datei ist leer oder ungültig")
+@app.post("/decode/live")
+async def decode_live(
+    file: UploadFile = File(...),
+    offset: float = Form(0),
+    length: float | None = Form(None),
+    freq: int = Form(750),
+    wpm: float | None = Form(None),
+    auto_wpm: bool = Form(True),
+    python_only: bool = Form(False),
+    raw: bool = Form(False),
+    authorization: str | None = Header(None),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+):
+    _check_api_key(authorization, x_api_key)
+    return await handle_decode_upload(
+        file,
+        offset=offset,
+        length=length,
+        freq=freq,
+        wpm=wpm,
+        auto_wpm=auto_wpm,
+        python_only=python_only,
+        raw=raw,
+        max_bytes=LIVE_MAX_BYTES,
+    )
 
-    suffix = Path(file.filename).suffix or ".wav"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(data)
-        tmp_path = Path(tmp.name)
 
+@app.post("/transmit")
+async def transmit(
+    body: TransmitRequest,
+    authorization: str | None = Header(None),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+):
+    _check_api_key(authorization, x_api_key)
     try:
-        info = wav_info(tmp_path)
-        result = decode(
-            tmp_path,
-            DecodeOptions(
-                offset=offset,
-                length=length,
-                freq=freq,
-                wpm=wpm,
-                auto_wpm=auto_wpm and length is not None,
-                python_only=python_only,
-                raw=raw,
-            ),
+        wav_bytes = generate_cw_wav(
+            body.text,
+            freq=body.freq,
+            wpm=body.wpm,
+            sample_rate=body.sample_rate,
         )
-        return JSONResponse({
-            **result.to_dict(),
-            "input": {
-                "filename": file.filename,
-                "sample_rate": info.sample_rate,
-                "channels": info.channels,
-                "duration_seconds": round(info.duration_seconds, 2),
-            },
-        })
-    except RuntimeError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    finally:
-        tmp_path.unlink(missing_ok=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return Response(
+        content=wav_bytes,
+        media_type="audio/wav",
+        headers={
+            "X-Morse-Preview": text_to_morse(body.text)[:200],
+            "Content-Disposition": 'inline; filename="morse.wav"',
+        },
+    )
 
 
 def main() -> None:
