@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const presetSelect = document.getElementById('transmit-preset');
   const liveCheck = document.getElementById('transmit-live');
   const liveStatus = document.getElementById('transmit-live-status');
+  const liveControls = document.getElementById('transmit-live-controls');
   const liveStop = document.getElementById('transmit-live-stop');
   const liveSendAll = document.getElementById('transmit-live-send-all');
   const liveHint = document.getElementById('transmit-live-hint');
@@ -71,29 +72,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updateLiveStatus() {
+    const liveOn = isLiveEnabled();
+    const playing = liveCw.remainingSeconds() > 0.05;
+    liveControls?.classList.toggle('hidden', !liveOn && !playing);
+
     if (!liveStatus) return;
-    if (!isLiveEnabled()) {
-      liveStatus.textContent = 'Aus';
-      liveStatus.className = 'status-pill';
+    if (!liveOn && !playing) {
       if (liveStop) liveStop.disabled = true;
       return;
     }
 
-    const remaining = liveCw.remainingSeconds();
-    if (remaining > 0.05) {
+    if (playing) {
       liveStatus.textContent = 'Sendet…';
-      liveStatus.className = 'status-pill on-air';
+      liveStatus.dataset.state = 'sending';
       if (liveStop) liveStop.disabled = false;
     } else {
       liveStatus.textContent = 'Bereit';
-      liveStatus.className = 'status-pill';
+      liveStatus.dataset.state = 'ready';
       if (liveStop) liveStop.disabled = false;
     }
   }
 
   function startStatusPoll() {
     clearInterval(statusTimer);
-    statusTimer = setInterval(updateLiveStatus, 100);
+    statusTimer = setInterval(() => {
+      updateLiveStatus();
+      if (!isLiveEnabled() && liveCw.remainingSeconds() <= 0.05) {
+        stopStatusPoll();
+      }
+    }, 100);
   }
 
   function stopStatusPoll() {
@@ -201,11 +208,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   liveSendAll?.addEventListener('click', async () => {
-    if (!isLiveEnabled()) {
-      liveCheck.checked = true;
-      await enableLiveMode(true);
-      if (!isLiveEnabled()) return;
-    }
     try {
       await liveCw.unlock();
       liveCw.resetState();
@@ -213,8 +215,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const text = textInput.value;
       if (text) {
         await liveCw.sendText(text);
-        lastSentText = text;
+        if (isLiveEnabled()) lastSentText = text;
       }
+      startStatusPoll();
       updateLiveStatus();
     } catch (err) {
       meta.className = 'meta error';

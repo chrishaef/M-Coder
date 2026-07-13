@@ -628,9 +628,8 @@ button.secondary.small {
 
 .live-transmit-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.65rem;
   margin-bottom: 0.5rem;
   padding: 0.75rem;
   background: var(--bg-elevated);
@@ -638,7 +637,55 @@ button.secondary.small {
   border-radius: 10px;
 }
 
-.live-transmit-bar .check { flex: 1; min-width: 200px; }
+.live-transmit-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.live-transmit-top .check { flex: 1; min-width: 160px; }
+
+.live-transmit-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.live-transmit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.live-status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 8rem;
+}
+
+.live-status-caption {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.live-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  pointer-events: none;
+  user-select: none;
+}
+
+.live-status[data-state="ready"] { color: var(--ok); }
+.live-status[data-state="sending"] { color: var(--warn); }
 
 .status-pill.on-air {
   color: var(--warn);

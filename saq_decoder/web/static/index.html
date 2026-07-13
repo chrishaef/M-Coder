@@ -241,15 +241,23 @@
         <textarea id="transmit-text" placeholder="CQ CQ DE TEST">CQ CQ DE TEST</textarea>
 
         <div class="live-transmit-bar">
-          <div class="check" style="margin-bottom:0">
-            <input type="checkbox" id="transmit-live">
-            <label for="transmit-live">Live übertragen (Tastatureingabe sofort als CW)</label>
+          <div class="live-transmit-top">
+            <div class="check" style="margin-bottom:0">
+              <input type="checkbox" id="transmit-live">
+              <label for="transmit-live">Live-Modus</label>
+            </div>
+            <button type="button" class="secondary" id="transmit-live-send-all">Gesamten Text abspielen</button>
           </div>
-          <span class="status-pill" id="transmit-live-status">Aus</span>
-          <button type="button" class="secondary" id="transmit-live-stop" disabled>Stop</button>
-          <button type="button" class="secondary" id="transmit-live-send-all">Alles senden</button>
+          <p class="live-transmit-desc">Im Live-Modus wird jede neue Eingabe sofort als CW-Ton wiedergegeben.</p>
+          <div id="transmit-live-controls" class="live-transmit-controls hidden">
+            <div class="live-status-line">
+              <span class="live-status-caption">Status</span>
+              <span id="transmit-live-status" class="live-status" aria-live="polite">Bereit</span>
+            </div>
+            <button type="button" class="secondary" id="transmit-live-stop">Ton stoppen</button>
+          </div>
         </div>
-        <p class="hint" id="transmit-live-hint">Live-Modus: Nach Aktivieren werden nur neu getippte Zeichen gesendet. Bereits stehender Text über „Alles senden“. Lautstärke des Browsers prüfen.</p>
+        <p class="hint" id="transmit-live-hint">„Gesamten Text abspielen“ sendet den kompletten Inhalt einmal. Im Live-Modus reicht Tippen – bereits stehender Text wird nicht erneut gesendet.</p>
 
         <p class="card-title">Morse-Vorschau</p>
         <div class="morse-preview" id="transmit-morse-preview"></div>
