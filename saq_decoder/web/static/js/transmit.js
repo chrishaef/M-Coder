@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateLiveStatus();
   }
 
-  function syncLiveAppend() {
+  async function syncLiveAppend() {
     if (!isLiveEnabled()) return;
 
     const text = textInput.value;
@@ -128,21 +128,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const newPart = text.slice(lastSentText.length);
     if (newPart) {
-      liveCw.sendText(newPart);
-      lastSentText = text;
-      updateLiveStatus();
+      try {
+        await liveCw.sendText(newPart);
+        lastSentText = text;
+        updateLiveStatus();
+      } catch (err) {
+        meta.className = 'meta error';
+        meta.textContent = 'Live-Audio: ' + err.message;
+      }
     }
   }
 
-  function enableLiveMode(on) {
+  async function enableLiveMode(on) {
     if (on) {
+      try {
+        await liveCw.unlock();
+      } catch (err) {
+        if (liveCheck) liveCheck.checked = false;
+        meta.className = 'meta error';
+        meta.textContent = 'Audio konnte nicht gestartet werden: ' + err.message;
+        updateLiveStatus();
+        return;
+      }
       lastSentText = textInput.value;
       liveCw.resetState();
       if (liveHint) liveHint.classList.remove('hidden');
       startStatusPoll();
       meta.className = 'meta ok';
       meta.textContent =
-        'Live-Modus aktiv – Preset: ' +
+        'Live-Modus aktiv – neue Zeichen werden sofort gesendet. Preset: ' +
         (Presets.get(Presets.getStoredId('transmit'))?.name || '') +
         ' (' + liveCw.getSettingsFromDom().freq + ' Hz, ' +
         liveCw.getSettingsFromDom().wpm + ' WPM)';
@@ -157,35 +171,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   textInput.addEventListener('input', () => {
     preview.textContent = clientMorsePreview(textInput.value);
-    syncLiveAppend();
+    void syncLiveAppend();
   });
   preview.textContent = clientMorsePreview(textInput.value);
 
   liveCheck?.addEventListener('change', () => {
-    enableLiveMode(isLiveEnabled());
+    void enableLiveMode(isLiveEnabled());
   });
 
-  liveStop?.addEventListener('click', () => {
+  liveStop?.addEventListener('click', async () => {
     liveCw.stop();
     lastSentText = textInput.value;
-    liveCw.resetState();
+    if (isLiveEnabled()) {
+      try {
+        await liveCw.unlock();
+        liveCw.resetState();
+      } catch (err) {
+        meta.className = 'meta error';
+        meta.textContent = 'Audio konnte nicht neu gestartet werden: ' + err.message;
+      }
+    }
     updateLiveStatus();
   });
 
-  liveSendAll?.addEventListener('click', () => {
+  liveSendAll?.addEventListener('click', async () => {
     if (!isLiveEnabled()) {
       liveCheck.checked = true;
-      enableLiveMode(true);
+      await enableLiveMode(true);
+      if (!isLiveEnabled()) return;
     }
-    liveCw.stop();
-    liveCw.resetState();
-    lastSentText = '';
-    const text = textInput.value;
-    if (text) {
-      liveCw.sendText(text);
-      lastSentText = text;
+    try {
+      await liveCw.unlock();
+      liveCw.resetState();
+      lastSentText = '';
+      const text = textInput.value;
+      if (text) {
+        await liveCw.sendText(text);
+        lastSentText = text;
+      }
+      updateLiveStatus();
+    } catch (err) {
+      meta.className = 'meta error';
+      meta.textContent = 'Live-Audio: ' + err.message;
     }
-    updateLiveStatus();
   });
 
   form.addEventListener('submit', async (e) => {

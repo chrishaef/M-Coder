@@ -15,13 +15,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const freqInput = document.getElementById('file-freq');
   const fileMeta = document.getElementById('file-info');
   const playerCard = document.getElementById('file-player');
+  const decodePanel = document.getElementById('file-decode-panel');
   const presetSelect = document.getElementById('file-preset');
   const dropZone = document.getElementById('file-drop');
   const detectedFreqEl = document.getElementById('file-detected-freq');
   const configuredFreqEl = document.getElementById('file-configured-freq');
   const applyFreqBtn = document.getElementById('file-apply-freq');
+  const decodeFullCheckbox = document.getElementById('file-decode-full');
+  const historyWrap = document.getElementById('file-history');
+  const historyList = document.getElementById('file-history-list');
 
   let inputSyncTimer = null;
+  let decodeHistory = [];
+  let historyId = 0;
 
   function updateFreqBar(detected) {
     if (detectedFreqEl) detectedFreqEl.textContent = detected != null ? String(detected) : '–';
@@ -30,10 +36,73 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function updateDecodeButton() {
+    const hasSel = player.hasSelection();
+    const full = decodeFullCheckbox?.checked;
+    if (!btn) return;
+    if (full) {
+      btn.textContent = 'Ganze Datei dekodieren';
+    } else if (hasSel) {
+      btn.textContent = 'Markierten Bereich dekodieren';
+    } else {
+      btn.textContent = 'Bereich markieren oder „Ganze Datei“ aktivieren';
+    }
+  }
+
+  function showLoadedPanels(show) {
+    playerCard?.classList.toggle('hidden', !show);
+    decodePanel?.classList.toggle('hidden', !show);
+  }
+
+  function resetHistory() {
+    decodeHistory = [];
+    historyId = 0;
+    historyWrap?.classList.add('hidden');
+    if (historyList) historyList.innerHTML = '';
+  }
+
+  function renderHistory() {
+    if (!historyList || !historyWrap) return;
+    if (!decodeHistory.length) {
+      historyWrap.classList.add('hidden');
+      historyList.innerHTML = '';
+      return;
+    }
+    historyWrap.classList.remove('hidden');
+    historyList.innerHTML = decodeHistory
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const preview = entry.text.length > 80 ? entry.text.slice(0, 80) + '…' : entry.text;
+        return (
+          '<li><button type="button" class="history-item" data-id="' + entry.id + '">' +
+          '<span class="history-title">' + App.escapeHtml(entry.label) + '</span>' +
+          '<span class="history-preview">' + App.escapeHtml(preview || '(leer)') + '</span>' +
+          '</button></li>'
+        );
+      })
+      .join('');
+  }
+
+  function addHistoryEntry(entry) {
+    decodeHistory.push(entry);
+    if (decodeHistory.length > 12) decodeHistory.shift();
+    renderHistory();
+  }
+
+  function showHistoryEntry(id) {
+    const entry = decodeHistory.find((e) => e.id === id);
+    if (!entry) return;
+    out.textContent = entry.text || '(leer)';
+    meta.className = 'meta ok';
+    meta.textContent = entry.meta;
+  }
+
   const player = createWaveformPlayer({
     wrap: '#file-waveform-wrap',
     canvas: '#file-waveform',
     spectrumCanvas: '#file-spectrum',
+    seekSlider: '#file-seek',
     timeCurrent: '#file-time-current',
     timeTotal: '#file-time-total',
     viewRange: '#file-view-range',
@@ -49,10 +118,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (sel) {
         offsetInput.value = sel.start.toFixed(1);
         lengthInput.value = (sel.end - sel.start).toFixed(1);
-      } else {
+        if (decodeFullCheckbox) decodeFullCheckbox.checked = false;
+      } else if (!decodeFullCheckbox?.checked) {
         offsetInput.value = '0';
         lengthInput.value = '';
       }
+      updateDecodeButton();
     },
     onAnalysis({ detectedFreq }) {
       updateFreqBar(detectedFreq);
@@ -79,14 +150,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  decodeFullCheckbox?.addEventListener('change', () => {
+    if (decodeFullCheckbox.checked) {
+      player.clearSelection();
+      offsetInput.value = '0';
+      lengthInput.value = '';
+    }
+    updateDecodeButton();
+  });
+
+  historyList?.addEventListener('click', (e) => {
+    const btnEl = e.target.closest('.history-item');
+    if (!btnEl) return;
+    showHistoryEntry(parseInt(btnEl.dataset.id, 10));
+  });
+
   async function handleFile(file) {
     if (!file) {
       player.cleanup();
-      playerCard.classList.add('hidden');
+      showLoadedPanels(false);
+      resetHistory();
       updateFreqBar(null);
+      out.textContent = 'Nach dem Markieren eines Bereichs dekodieren – Preset und Einstellungen jederzeit änderbar.';
+      meta.textContent = '';
+      meta.className = 'meta';
+      updateDecodeButton();
       return;
     }
     try {
+      resetHistory();
       player.setConfiguredFreq(parseInt(freqInput.value, 10) || 750);
       const info = await player.loadFromFile(file);
       fileMeta.textContent =
@@ -100,17 +192,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         offsetInput.value = '0';
         lengthInput.value = '';
       }
-      playerCard.classList.remove('hidden');
+      if (decodeFullCheckbox) decodeFullCheckbox.checked = false;
+      showLoadedPanels(true);
+      out.textContent =
+        'Datei geladen. Bereich auf der Wellenform markieren, anhören und dann dekodieren.';
+      meta.textContent = '';
+      meta.className = 'meta';
+      updateDecodeButton();
     } catch (err) {
       player.cleanup();
+      showLoadedPanels(true);
       fileMeta.textContent = 'Wellenform konnte nicht geladen werden: ' + err.message;
-      playerCard.classList.remove('hidden');
     }
   }
 
   function syncSelectionFromInputs() {
     const dur = player.getDuration();
     if (!dur) return;
+    if (decodeFullCheckbox?.checked) {
+      player.clearSelection();
+      return;
+    }
     const off = parseFloat(offsetInput.value) || 0;
     const lenRaw = lengthInput.value.trim();
     if (!lenRaw) player.clearSelection();
@@ -121,10 +223,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   offsetInput.addEventListener('input', () => {
+    if (decodeFullCheckbox?.checked) decodeFullCheckbox.checked = false;
     clearTimeout(inputSyncTimer);
     inputSyncTimer = setTimeout(syncSelectionFromInputs, 200);
   });
   lengthInput.addEventListener('input', () => {
+    if (decodeFullCheckbox?.checked) decodeFullCheckbox.checked = false;
     clearTimeout(inputSyncTimer);
     inputSyncTimer = setTimeout(syncSelectionFromInputs, 200);
   });
@@ -138,20 +242,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const file = fileInput.files?.[0];
+    if (!file) {
+      meta.className = 'meta error';
+      meta.textContent = 'Bitte zuerst eine WAV-Datei laden.';
+      return;
+    }
+
+    syncSelectionFromInputs();
+
+    const decodeFull = decodeFullCheckbox?.checked;
+    const hasSel = player.hasSelection();
+
+    if (!decodeFull && !hasSel) {
+      meta.className = 'meta error';
+      meta.textContent =
+        'Bitte einen Bereich auf der Wellenform markieren oder „Ganze Datei dekodieren“ aktivieren.';
+      return;
+    }
+
     btn.disabled = true;
     out.textContent = 'Dekodiere\u2026';
     meta.textContent = '';
     meta.className = 'meta';
 
-    syncSelectionFromInputs();
-
-    const file = fileInput.files?.[0];
-    if (!file) return;
+    const offset = decodeFull ? '0' : (offsetInput.value || '0');
+    const len = decodeFull ? '' : lengthInput.value;
 
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('offset', offsetInput.value || '0');
-    const len = lengthInput.value;
+    fd.append('offset', offset);
     if (len) fd.append('length', len);
     fd.append('freq', freqInput.value || '750');
     fd.append('auto_freq', document.getElementById('file-auto-freq').checked ? 'true' : 'false');
@@ -169,14 +290,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateFreqBar(data.detected_freq);
       }
       meta.className = 'meta ok';
+      const presetName = Presets.get(Presets.getStoredId('file'))?.name || '';
       const freqInfo = data.freq_auto
         ? 'Ton auto: ' + data.detected_freq + ' Hz (genutzt: ' + data.freq_used + ' Hz)'
         : 'Ton erkannt: ' + data.detected_freq + ' Hz (eingestellt: ' + data.freq_used + ' Hz)';
+      const rangeInfo = decodeFull
+        ? 'Ganze Datei'
+        : App.fmtTime(parseFloat(offset)) + ' \u2013 ' +
+          App.fmtTime(parseFloat(offset) + (parseFloat(len) || data.duration_seconds));
       meta.textContent =
-        'Preset: ' + (Presets.get(Presets.getStoredId('file'))?.name || '') +
+        'Preset: ' + presetName +
+        ' \u00b7 Bereich: ' + rangeInfo +
         ' \u00b7 ' + freqInfo +
         ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
         ' \u00b7 Dauer: ' + data.duration_seconds + 's';
+
+      const entryId = ++historyId;
+      addHistoryEntry({
+        id: entryId,
+        text: data.text || '',
+        label: presetName + ' \u00b7 ' + rangeInfo + ' \u00b7 ' + data.wpm + ' WPM',
+        meta: meta.textContent,
+      });
     } catch (err) {
       out.textContent = '';
       meta.className = 'meta error';
@@ -191,4 +326,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   updateFreqBar(null);
+  updateDecodeButton();
 });

@@ -21,6 +21,14 @@ const App = {
     return Math.max(lo, Math.min(hi, v));
   },
 
+  escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  },
+
   async fetchJson(url, options = {}) {
     const res = await fetch(url, {
       ...options,

@@ -17,25 +17,52 @@ function createLiveCwTransmitter() {
   let nextTime = 0;
   let prevWasChar = false;
   let active = false;
+  let unlockPromise = null;
 
   function unitSec(wpm) {
     return 1.2 / wpm;
   }
 
-  function ensureContext() {
-    if (!ctx || ctx.state === 'closed') {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      nextTime = 0;
-    }
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+  function createContext() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    nextTime = 0;
     return ctx;
   }
 
+  function primeContext(audioCtx) {
+    const buffer = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(audioCtx.destination);
+    src.start();
+  }
+
+  async function unlock() {
+    if (unlockPromise) return unlockPromise;
+
+    unlockPromise = (async () => {
+      if (!ctx || ctx.state === 'closed') {
+        createContext();
+      }
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      primeContext(ctx);
+      if (ctx.state !== 'running') {
+        throw new Error('AudioContext ist nicht aktiv (' + ctx.state + ')');
+      }
+      return ctx;
+    })();
+
+    try {
+      return await unlockPromise;
+    } finally {
+      unlockPromise = null;
+    }
+  }
+
   function baseTime() {
-    const audioCtx = ensureContext();
-    const now = audioCtx.currentTime + 0.03;
+    const now = ctx.currentTime + 0.03;
     if (nextTime < now) nextTime = now;
     return nextTime;
   }
@@ -46,19 +73,21 @@ function createLiveCwTransmitter() {
   }
 
   function scheduleTone(duration, freq) {
-    const audioCtx = ensureContext();
     const start = baseTime();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.value = freq;
     const peak = 0.82;
+    const attack = Math.min(0.003, duration * 0.25);
+    const release = Math.min(0.003, duration * 0.25);
+    const holdEnd = Math.max(start + attack, start + duration - release);
     gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(peak, start + 0.003);
-    gain.gain.setValueAtTime(peak, start + duration - 0.003);
+    gain.gain.linearRampToValueAtTime(peak, start + attack);
+    gain.gain.setValueAtTime(peak, holdEnd);
     gain.gain.linearRampToValueAtTime(0, start + duration);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     osc.start(start);
     osc.stop(start + duration + 0.005);
     nextTime = start + duration;
@@ -93,6 +122,8 @@ function createLiveCwTransmitter() {
       return active;
     },
 
+    unlock,
+
     getSettingsFromDom() {
       return {
         freq: parseInt(document.getElementById('transmit-freq')?.value, 10) || 750,
@@ -100,8 +131,9 @@ function createLiveCwTransmitter() {
       };
     },
 
-    sendText(text) {
+    async sendText(text) {
       if (!text) return 0;
+      await unlock();
       active = true;
       const settings = this.getSettingsFromDom();
       let sent = 0;

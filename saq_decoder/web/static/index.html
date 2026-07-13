@@ -103,23 +103,21 @@
     <section id="panel-file" class="panel active">
       <div class="panel-header">
         <h2>File Decode</h2>
-        <p>WAV-Aufnahmen laden, Bereich markieren und dekodieren – für SAQ, Amateurfunk, Beacon und mehr.</p>
+        <p>WAV laden, anhören, Bereich markieren und nur dieses Segment dekodieren – mit verschiedenen Presets testbar.</p>
       </div>
 
-      <form id="file-form" class="card">
-        <div class="preset-block">
-          <label for="file-preset">Preset</label>
-          <select id="file-preset"></select>
-          <p class="preset-desc" id="file-preset-desc"></p>
+      <form id="file-form">
+        <div class="card">
+          <p class="step-label">1 · Datei laden</p>
+          <div id="file-drop" class="drop-zone">
+            <label for="file-input" class="drop-label">WAV-Aufnahme</label>
+            <p class="drop-hint">Datei wählen oder hierher ziehen (.wav)</p>
+            <input type="file" id="file-input" accept=".wav,audio/wav" required>
+          </div>
         </div>
 
-        <div id="file-drop" class="drop-zone">
-          <label for="file-input" class="drop-label">WAV-Aufnahme</label>
-          <p class="drop-hint">Datei wählen oder hierher ziehen (.wav)</p>
-          <input type="file" id="file-input" accept=".wav,audio/wav" required>
-        </div>
-
-        <div id="file-player" class="hidden">
+        <div id="file-player" class="card hidden">
+          <p class="step-label">2 · Aufnahme ansehen &amp; abspielen</p>
           <div class="file-meta" id="file-info"></div>
 
           <div class="freq-analysis-bar" id="file-freq-bar">
@@ -134,10 +132,11 @@
               <canvas id="file-waveform" class="waveform"></canvas>
             </div>
             <div class="spectrum-wrap" id="file-spectrum-wrap">
-              <span class="spectrum-label">Spektrum</span>
+              <span class="spectrum-label">Spektrum (Markierung)</span>
               <canvas id="file-spectrum" class="spectrum"></canvas>
             </div>
           </div>
+
           <div class="zoom-bar">
             <button type="button" class="secondary" id="file-zoom-out" title="Herauszoomen">&#8722;</button>
             <button type="button" class="secondary" id="file-zoom-in" title="Hineinzoomen">+</button>
@@ -145,59 +144,82 @@
             <button type="button" class="secondary" id="file-zoom-selection" title="Auf Auswahl zoomen">Auswahl</button>
             <span class="view-range" id="file-view-range">Gesamtansicht</span>
           </div>
+
+          <div class="seek-bar-wrap">
+            <input type="range" id="file-seek" class="seek-slider" min="0" max="1000" value="0" step="1">
+          </div>
+
           <div class="player-bar">
-            <button type="button" class="secondary" id="file-btn-play">&#9654;</button>
-            <button type="button" class="secondary" id="file-btn-play-sel">&#9654; Auswahl</button>
-            <button type="button" class="secondary" id="file-btn-clear-sel">&#10005;</button>
+            <button type="button" class="secondary" id="file-btn-play" title="Play/Pause">&#9654;</button>
+            <button type="button" class="secondary" id="file-btn-play-sel" title="Nur Markierung">&#9654; Auswahl</button>
+            <button type="button" class="secondary" id="file-btn-clear-sel" title="Markierung aufheben">&#10005;</button>
             <span class="time-display">
               <span id="file-time-current">0:00.0</span>
               <span class="muted"> / </span>
               <span id="file-time-total">0:00.0</span>
             </span>
           </div>
-          <div class="selection-info" id="file-selection-info">Kein Bereich markiert.</div>
-          <p class="hint">Mausrad = Zoom · Shift+Ziehen = Schwenken · Klick = Position · Ziehen = Bereich markieren</p>
+
+          <div class="selection-info" id="file-selection-info">Noch kein Dekodier-Bereich markiert.</div>
+          <p class="hint">Klick = Position springen · Ziehen = Bereich markieren · Mausrad = Zoom · Shift+Ziehen = Schwenken</p>
         </div>
 
-        <div class="row">
-          <div>
-            <label for="file-offset">Offset (Sekunden)</label>
-            <input type="number" id="file-offset" value="0" min="0" step="0.1">
+        <div id="file-decode-panel" class="card hidden">
+          <p class="step-label">3 · Bereich dekodieren</p>
+
+          <div class="preset-block">
+            <label for="file-preset">Preset</label>
+            <select id="file-preset"></select>
+            <p class="preset-desc" id="file-preset-desc"></p>
           </div>
-          <div>
-            <label for="file-length">Länge (Sek., leer = Rest)</label>
-            <input type="number" id="file-length" min="0.1" step="0.1" placeholder="z.B. 275">
+
+          <div class="row">
+            <div>
+              <label for="file-offset">Offset (Sekunden)</label>
+              <input type="number" id="file-offset" value="0" min="0" step="0.1">
+            </div>
+            <div>
+              <label for="file-length">Länge (Sek.)</label>
+              <input type="number" id="file-length" min="0.1" step="0.1" placeholder="z.B. 275">
+            </div>
           </div>
-        </div>
 
-        <div class="row">
-          <div>
-            <label for="file-freq">Tonfrequenz (Hz)</label>
-            <input type="number" id="file-freq" value="600" min="100" max="5000">
+          <div class="row">
+            <div>
+              <label for="file-freq">Tonfrequenz (Hz)</label>
+              <input type="number" id="file-freq" value="600" min="100" max="5000">
+            </div>
+            <div>
+              <label for="file-wpm">WPM (leer = auto)</label>
+              <input type="number" id="file-wpm" min="5" max="40" step="1" placeholder="auto">
+            </div>
           </div>
-          <div>
-            <label for="file-wpm">WPM (leer = auto)</label>
-            <input type="number" id="file-wpm" min="5" max="40" step="1" placeholder="auto">
+
+          <div class="check">
+            <input type="checkbox" id="file-auto-freq">
+            <label for="file-auto-freq">Tonfrequenz automatisch erkennen</label>
           </div>
-        </div>
+          <div class="check">
+            <input type="checkbox" id="file-auto-wpm" checked>
+            <label for="file-auto-wpm">WPM automatisch ermitteln</label>
+          </div>
+          <div class="check">
+            <input type="checkbox" id="file-decode-full">
+            <label for="file-decode-full">Ganze Datei dekodieren (ohne Markierung)</label>
+          </div>
 
-        <div class="check">
-          <input type="checkbox" id="file-auto-freq">
-          <label for="file-auto-freq">Tonfrequenz automatisch erkennen (beim Dekodieren)</label>
+          <button type="submit" class="primary btn-full" id="file-btn">Markierten Bereich dekodieren</button>
         </div>
-
-        <div class="check">
-          <input type="checkbox" id="file-auto-wpm" checked>
-          <label for="file-auto-wpm">WPM automatisch ermitteln</label>
-        </div>
-
-        <button type="submit" class="primary btn-full" id="file-btn">Dekodieren</button>
       </form>
 
       <div class="card">
         <p class="card-title">Ergebnis</p>
-        <pre class="result" id="file-out">Noch keine Dekodierung.</pre>
+        <pre class="result" id="file-out">Nach dem Markieren eines Bereichs dekodieren – Preset und Einstellungen jederzeit änderbar.</pre>
         <div class="meta" id="file-meta-result"></div>
+        <div id="file-history" class="decode-history hidden">
+          <p class="card-title">Frühere Dekodierungen (dieselbe Datei)</p>
+          <ul id="file-history-list"></ul>
+        </div>
       </div>
     </section>
 
@@ -227,7 +249,7 @@
           <button type="button" class="secondary" id="transmit-live-stop" disabled>Stop</button>
           <button type="button" class="secondary" id="transmit-live-send-all">Alles senden</button>
         </div>
-        <p class="hint" id="transmit-live-hint">Live-Modus: neue Zeichen werden sofort im Preset (Ton, WPM) gesendet. Löschen betrifft nur den Text, nicht bereits gesendetes Audio.</p>
+        <p class="hint" id="transmit-live-hint">Live-Modus: Nach Aktivieren werden nur neu getippte Zeichen gesendet. Bereits stehender Text über „Alles senden“. Lautstärke des Browsers prüfen.</p>
 
         <p class="card-title">Morse-Vorschau</p>
         <div class="morse-preview" id="transmit-morse-preview"></div>

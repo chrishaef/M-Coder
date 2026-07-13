@@ -14,6 +14,7 @@ function createWaveformPlayer(opts) {
   const btnZoomIn = opts.btnZoomIn ? document.querySelector(opts.btnZoomIn) : null;
   const btnZoomOut = opts.btnZoomOut ? document.querySelector(opts.btnZoomOut) : null;
   const btnZoomReset = opts.btnZoomReset ? document.querySelector(opts.btnZoomReset) : null;
+  const seekSlider = opts.seekSlider ? document.querySelector(opts.seekSlider) : null;
   const spectrumCanvas = opts.spectrumCanvas ? document.querySelector(opts.spectrumCanvas) : null;
   const selectable = opts.selectable !== false;
   const zoomable = opts.zoomable !== false;
@@ -36,6 +37,7 @@ function createWaveformPlayer(opts) {
   let panAnchor = null;
   let playSelectionOnly = false;
   let rafId = null;
+  let seekSyncing = false;
   let onSelectionChange = opts.onSelectionChange || (() => {});
   let onAnalysis = opts.onAnalysis || (() => {});
 
@@ -132,23 +134,43 @@ function createWaveformPlayer(opts) {
     if (btnPlaySel) btnPlaySel.disabled = !hasSelection();
     if (!selectionInfo) return;
     if (!duration) {
-      selectionInfo.textContent = 'Kein Bereich markiert.';
+      selectionInfo.textContent = 'Noch kein Dekodier-Bereich markiert.';
       return;
     }
     if (hasSelection()) {
       const len = selection.end - selection.start;
       selectionInfo.innerHTML =
-        'Markierter Bereich: <strong>' + App.fmtTime(selection.start) + ' &ndash; ' +
+        'Dekodier-Bereich: <strong>' + App.fmtTime(selection.start) + ' &ndash; ' +
         App.fmtTime(selection.end) + '</strong> (' + len.toFixed(1) + ' s)';
     } else {
       selectionInfo.textContent =
-        'Kein Bereich markiert &ndash; ganze Datei (' + App.fmtTime(duration) + ').';
+        'Noch kein Bereich markiert &ndash; Ziehen Sie über die Wellenform oder aktivieren Sie „Ganze Datei dekodieren“.';
     }
   }
 
   function notifySelection() {
     updateSelectionInfo();
     onSelectionChange(hasSelection() ? selection : null);
+  }
+
+  function updateSeekSlider(t) {
+    if (!seekSlider || !duration) return;
+    seekSyncing = true;
+    seekSlider.value = String(Math.round((t / duration) * 1000));
+    seekSyncing = false;
+  }
+
+  function seekTo(t, { redraw = true } = {}) {
+    if (!duration) return;
+    const clamped = App.clamp(t, 0, duration);
+    if (audioEl) audioEl.currentTime = clamped;
+    if (timeCurrent) timeCurrent.textContent = App.fmtTime(clamped);
+    updateSeekSlider(clamped);
+    if (redraw) drawWaveform(clamped);
+  }
+
+  function getCurrentTime() {
+    return audioEl ? audioEl.currentTime : 0;
   }
 
   function setPlayButton(playing) {
@@ -182,6 +204,7 @@ function createWaveformPlayer(opts) {
       updateViewLabel();
     }
     if (timeCurrent) timeCurrent.textContent = App.fmtTime(t);
+    updateSeekSlider(t);
     drawWaveform(t);
     rafId = requestAnimationFrame(tickPlayhead);
   }
@@ -297,6 +320,7 @@ function createWaveformPlayer(opts) {
     viewEnd = 0;
     if (timeCurrent) timeCurrent.textContent = App.fmtTime(0);
     if (timeTotal) timeTotal.textContent = App.fmtTime(0);
+    updateSeekSlider(0);
     updateViewLabel();
     drawWaveform();
   }
@@ -311,6 +335,7 @@ function createWaveformPlayer(opts) {
     audioEl.addEventListener('timeupdate', () => {
       if (audioEl && !audioEl.paused && timeCurrent) {
         timeCurrent.textContent = App.fmtTime(audioEl.currentTime);
+        updateSeekSlider(audioEl.currentTime);
       }
     });
     audioEl.addEventListener('ended', () => {
@@ -330,6 +355,7 @@ function createWaveformPlayer(opts) {
     viewEnd = duration;
     if (timeTotal) timeTotal.textContent = App.fmtTime(duration);
     if (timeCurrent) timeCurrent.textContent = App.fmtTime(0);
+    updateSeekSlider(0);
     selection = null;
     updateViewLabel();
     notifySelection();
@@ -389,7 +415,6 @@ function createWaveformPlayer(opts) {
       } else {
         dragMode = 'new';
         dragAnchor = t;
-        selection = normalizeSelection(t, t);
       }
       wrap.setPointerCapture(e.pointerId);
     });
@@ -413,8 +438,11 @@ function createWaveformPlayer(opts) {
       if (!selectable) return;
       const t = timeFromX(x);
 
-      if (dragMode === 'new') selection = normalizeSelection(dragAnchor, t);
-      else if (dragMode === 'resize-start') selection = normalizeSelection(t, selection.end);
+      if (dragMode === 'new') {
+        if (Math.abs(x - dragStartX) >= 4) {
+          selection = normalizeSelection(dragAnchor, t);
+        }
+      } else if (dragMode === 'resize-start') selection = normalizeSelection(t, selection.end);
       else if (dragMode === 'resize-end') selection = normalizeSelection(selection.start, t);
       else if (dragMode === 'move' && dragOriginSel) {
         const len = dragOriginSel.end - dragOriginSel.start;
@@ -433,17 +461,15 @@ function createWaveformPlayer(opts) {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       if (mode === 'new' && Math.abs(x - dragStartX) < 4) {
-        if (audioEl) {
-          audioEl.currentTime = timeFromX(x);
-          if (timeCurrent) timeCurrent.textContent = App.fmtTime(audioEl.currentTime);
-        }
-        selection = null;
+        seekTo(timeFromX(x));
+      } else if (mode === 'new') {
+        runAnalysis();
       }
       dragMode = null;
       dragOriginSel = null;
       panAnchor = null;
       notifySelection();
-      if (mode !== 'pan') runAnalysis();
+      if (mode !== 'pan' && mode !== 'new') runAnalysis();
     });
 
     if (zoomable) {
@@ -457,6 +483,12 @@ function createWaveformPlayer(opts) {
       }, { passive: false });
     }
   }
+
+  seekSlider?.addEventListener('input', () => {
+    if (seekSyncing || !duration) return;
+    const t = (parseInt(seekSlider.value, 10) / 1000) * duration;
+    seekTo(t);
+  });
 
   btnZoomIn?.addEventListener('click', () => zoomAt(0.75));
   btnZoomOut?.addEventListener('click', () => zoomAt(1.35));
@@ -491,6 +523,7 @@ function createWaveformPlayer(opts) {
     selection = null;
     notifySelection();
     drawWaveform();
+    runAnalysis();
   });
 
   window.addEventListener('resize', () => {
@@ -529,6 +562,8 @@ function createWaveformPlayer(opts) {
       drawWaveform();
     },
     getDuration: () => duration,
+    getCurrentTime,
+    seekTo,
     resetView,
     zoomToSelection() {
       if (!hasSelection()) return;
