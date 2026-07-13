@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import wave
 from pathlib import Path
 
 from saq_decoder.config import VENDOR_DIR, classpath_sep
@@ -49,6 +50,25 @@ def score_text(text: str) -> int:
     return s
 
 
+def _wav_duration(wav: Path) -> float:
+    with wave.open(str(wav), "rb") as w:
+        return w.getnframes() / w.getframerate()
+
+
+def _gerke_length_seconds(offset: float, length: float | None, file_duration: float) -> int | None:
+    """Safe -l value for gerke-decoder, or None to decode through end of file."""
+    available = max(0.0, file_duration - offset)
+    if available < 0.05:
+        return None
+    if length is None or length >= available - 0.05:
+        return None
+    clamped = min(length, available)
+    sec = int(clamped)
+    if sec < 1 or sec > int(available):
+        return None
+    return sec
+
+
 def decode_with_gerke(
     wav: Path,
     *,
@@ -71,8 +91,9 @@ def decode_with_gerke(
         "-o", str(int(offset)),
         "-T", "U",
     ]
-    if length is not None:
-        cmd.extend(["-l", str(int(length))])
+    gerke_len = _gerke_length_seconds(offset, length, _wav_duration(wav))
+    if gerke_len is not None:
+        cmd.extend(["-l", str(gerke_len)])
     if timestamps:
         cmd.append("-t")
     cmd.append(str(wav))

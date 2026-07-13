@@ -84,7 +84,7 @@ async def handle_decode_upload(
                 freq=freq,
                 auto_freq=auto_freq,
                 wpm=wpm,
-                auto_wpm=auto_wpm and length is not None,
+                auto_wpm=auto_wpm,
                 python_only=python_only,
                 raw=raw,
                 autocorrect=autocorrect,

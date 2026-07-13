@@ -272,11 +272,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     meta.className = 'meta live';
     meta.textContent = 'Dekodiere Live-Segment\u2026';
 
-    const segLen = parseFloat(decodeInterval.value) || 4;
     const fd = new FormData();
     fd.append('file', wavBlob, 'live-chunk.wav');
     fd.append('offset', '0');
-    fd.append('length', String(segLen));
+    // Kein length – gesamtes Segment dekodieren (kürzer als Intervall möglich)
     fd.append('freq', document.getElementById('live-freq').value || '750');
     fd.append('auto_freq', document.getElementById('live-auto-freq').checked ? 'true' : 'false');
     const wpm = document.getElementById('live-wpm').value;

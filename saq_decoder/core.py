@@ -31,14 +31,24 @@ def wav_info(path: Path) -> WavInfo:
     )
 
 
+def effective_decode_length(
+    info: WavInfo, offset: float, length: float | None,
+) -> float:
+    available = max(0.0, info.duration_seconds - offset)
+    if length is None:
+        return available
+    return min(length, available)
+
+
 def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
     options = options or DecodeOptions()
     info = wav_info(path)
+    seg_len = effective_decode_length(info, options.offset, options.length)
 
     analysis = analyze_segment(
         path,
         offset=options.offset,
-        length=options.length,
+        length=seg_len if seg_len > 0 else None,
         center_hz=options.freq,
     )
     detected_freq = analysis["detected_freq"]
@@ -48,8 +58,8 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
     wpm = options.wpm or (20 if use_gerke else 18)
 
     if use_gerke:
-        if options.wpm is None and options.auto_wpm and options.length:
-            wpm, text = auto_wpm_scan(path, options.offset, options.length, freq_used)
+        if options.wpm is None and options.auto_wpm and seg_len >= 0.5:
+            wpm, text = auto_wpm_scan(path, options.offset, seg_len, freq_used)
         else:
             text = decode_with_gerke(
                 path,
@@ -62,10 +72,11 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
         engine = "gerke"
     else:
         decode_freq = None if options.auto_freq else freq_used
+        py_length = seg_len if options.length is not None else None
         text = decode_with_python(
             path,
             offset=options.offset,
-            length=options.length,
+            length=py_length,
             freq=decode_freq,
             wpm=wpm,
         )
@@ -80,10 +91,6 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
         text = format_message(text)
         if corrections:
             text_raw = format_message(text_raw)
-
-    seg_len = options.length
-    if seg_len is None:
-        seg_len = max(0.0, info.duration_seconds - options.offset)
 
     return DecodeResult(
         text=text,
