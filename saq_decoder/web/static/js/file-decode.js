@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     },
   });
 
-  Presets.fillSelect(presetSelect, Presets.currentId);
+  Presets.fillSelect(presetSelect, 'file');
   Presets.bindSelect(presetSelect, 'file-', () => {
     player.setConfiguredFreq(parseInt(freqInput.value, 10) || 750);
     syncSelectionFromInputs();
@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         file.name + ' \u00b7 ' + App.fmtTime(info.duration) + ' \u00b7 ' +
         info.sampleRate + ' Hz \u00b7 ' + info.channels + ' Kanal(e)';
       updateFreqBar(info.detectedFreq);
-      const p = Presets.get(Presets.currentId);
+      const p = Presets.get(Presets.getStoredId('file'));
       if (p?.offset) offsetInput.value = String(p.offset);
       if (p?.length) lengthInput.value = String(p.length);
       else {
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         ? 'Ton auto: ' + data.detected_freq + ' Hz (genutzt: ' + data.freq_used + ' Hz)'
         : 'Ton erkannt: ' + data.detected_freq + ' Hz (eingestellt: ' + data.freq_used + ' Hz)';
       meta.textContent =
-        'Preset: ' + (Presets.get(Presets.currentId)?.name || '') +
+        'Preset: ' + (Presets.get(Presets.getStoredId('file'))?.name || '') +
         ' \u00b7 ' + freqInfo +
         ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
         ' \u00b7 Dauer: ' + data.duration_seconds + 's';

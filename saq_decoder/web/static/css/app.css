@@ -458,7 +458,7 @@ canvas.waveform.tall { height: 160px; }
 }
 
 .level-meter {
-  height: 6px;
+  height: 10px;
   background: var(--wave-bg);
   border-radius: 999px;
   overflow: hidden;
@@ -468,8 +468,10 @@ canvas.waveform.tall { height: 160px; }
 .level-fill {
   height: 100%;
   width: 0%;
+  min-width: 0;
   background: linear-gradient(90deg, var(--ok), var(--warn));
-  transition: width 0.08s linear;
+  transition: width 0.05s linear;
+  border-radius: 999px;
 }
 
 .segment-badge {
@@ -550,5 +552,34 @@ button.secondary.small {
 
 @media (max-width: 500px) {
   button.secondary.small { margin-left: 0; width: 100%; }
+}
+
+.live-transmit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.live-transmit-bar .check { flex: 1; min-width: 200px; }
+
+.status-pill.on-air {
+  color: var(--warn);
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.status-pill.on-air::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: pulse 1.2s infinite;
 }
 

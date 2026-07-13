@@ -51,6 +51,7 @@
           <button type="button" class="primary" id="live-start">Aufnahme starten</button>
           <button type="button" class="secondary danger" id="live-stop" disabled>Stoppen</button>
           <button type="button" class="secondary" id="live-clear">Text leeren</button>
+          <button type="button" class="secondary" id="live-download" disabled>Aufnahme speichern</button>
           <span class="status-pill" id="live-status">Bereit</span>
           <span class="segment-badge">Segmente: <strong id="live-segments">0</strong></span>
         </div>
@@ -88,6 +89,7 @@
           <input type="checkbox" id="live-auto-wpm" checked>
           <label for="live-auto-wpm">WPM automatisch ermitteln</label>
         </div>
+        <p class="hint" id="live-recording-info">Nach Stoppen kann die gesamte Aufnahme als WAV heruntergeladen werden.</p>
       </div>
 
       <div class="card">
@@ -203,7 +205,7 @@
     <section id="panel-transmit" class="panel">
       <div class="panel-header">
         <h2>Transmit</h2>
-        <p>Text in Morse-CW umwandeln und als Audio erzeugen – zum Testen oder für Wiedergabe über Lautsprecher.</p>
+        <p>Text in Morse-CW umwandeln – als WAV exportieren oder live über die Lautsprecher senden.</p>
       </div>
 
       <form id="transmit-form" class="card">
@@ -215,6 +217,17 @@
 
         <label for="transmit-text">Nachricht</label>
         <textarea id="transmit-text" placeholder="CQ CQ DE TEST">CQ CQ DE TEST</textarea>
+
+        <div class="live-transmit-bar">
+          <div class="check" style="margin-bottom:0">
+            <input type="checkbox" id="transmit-live">
+            <label for="transmit-live">Live übertragen (Tastatureingabe sofort als CW)</label>
+          </div>
+          <span class="status-pill" id="transmit-live-status">Aus</span>
+          <button type="button" class="secondary" id="transmit-live-stop" disabled>Stop</button>
+          <button type="button" class="secondary" id="transmit-live-send-all">Alles senden</button>
+        </div>
+        <p class="hint" id="transmit-live-hint">Live-Modus: neue Zeichen werden sofort im Preset (Ton, WPM) gesendet. Löschen betrifft nur den Text, nicht bereits gesendetes Audio.</p>
 
         <p class="card-title">Morse-Vorschau</p>
         <div class="morse-preview" id="transmit-morse-preview"></div>
@@ -275,6 +288,7 @@
   <script src="/static/js/waveform.js"></script>
   <script src="/static/js/file-decode.js"></script>
   <script src="/static/js/live-decode.js"></script>
+  <script src="/static/js/cw-transmitter.js"></script>
   <script src="/static/js/transmit.js"></script>
 </body>
 </html>

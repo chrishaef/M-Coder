@@ -1,8 +1,8 @@
-/** Preset management – loads from API, applies to decode panels */
+/** Preset management – separate selection per panel (live / file / transmit) */
 
 const Presets = {
   items: [],
-  currentId: localStorage.getItem('mcoder_preset') || 'ham',
+  defaultId: 'ham',
 
   async load() {
     try {
@@ -11,7 +11,40 @@ const Presets = {
     } catch {
       this.items = this.fallback();
     }
+    this._migrateLegacyStorage();
     return this.items;
+  },
+
+  _migrateLegacyStorage() {
+    const legacy = localStorage.getItem('mcoder_preset');
+    if (!legacy) return;
+    for (const panel of ['live', 'file', 'transmit']) {
+      if (!localStorage.getItem('mcoder_preset_' + panel)) {
+        localStorage.setItem('mcoder_preset_' + panel, legacy);
+      }
+    }
+    localStorage.removeItem('mcoder_preset');
+  },
+
+  _panelKey(prefix) {
+    return prefix.replace(/-$/, '');
+  },
+
+  getStoredId(prefixOrPanel) {
+    const panel = prefixOrPanel.includes('-')
+      ? this._panelKey(prefixOrPanel)
+      : prefixOrPanel;
+    return localStorage.getItem('mcoder_preset_' + panel) || this.defaultId;
+  },
+
+  setStoredId(prefixOrPanel, id) {
+    const panel = prefixOrPanel.includes('-')
+      ? this._panelKey(prefixOrPanel)
+      : prefixOrPanel;
+    localStorage.setItem('mcoder_preset_' + panel, id);
+    window.dispatchEvent(new CustomEvent('presetchange', {
+      detail: { panel, id, preset: this.get(id) },
+    }));
   },
 
   fallback() {
@@ -29,13 +62,7 @@ const Presets = {
     return this.items.find((p) => p.id === id) || this.items[0];
   },
 
-  setCurrent(id) {
-    this.currentId = id;
-    localStorage.setItem('mcoder_preset', id);
-    window.dispatchEvent(new CustomEvent('presetchange', { detail: { id, preset: this.get(id) } }));
-  },
-
-  fillSelect(selectEl, selectedId) {
+  fillSelect(selectEl, prefixOrPanel) {
     if (!selectEl) return;
     selectEl.innerHTML = '';
     for (const p of this.items) {
@@ -44,11 +71,11 @@ const Presets = {
       opt.textContent = p.name;
       selectEl.appendChild(opt);
     }
-    selectEl.value = selectedId || this.currentId;
+    selectEl.value = this.getStoredId(prefixOrPanel);
   },
 
   applyToPanel(prefix, presetId) {
-    const p = this.get(presetId || this.currentId);
+    const p = this.get(presetId || this.getStoredId(prefix));
     if (!p) return p;
 
     const setVal = (id, val) => {
@@ -82,8 +109,9 @@ const Presets = {
   bindSelect(selectEl, prefix, onApplied) {
     if (!selectEl) return;
     const apply = () => {
-      this.setCurrent(selectEl.value);
-      const p = this.applyToPanel(prefix, selectEl.value);
+      const id = selectEl.value;
+      this.setStoredId(prefix, id);
+      const p = this.applyToPanel(prefix, id);
       if (onApplied) onApplied(p);
     };
     selectEl.addEventListener('change', apply);

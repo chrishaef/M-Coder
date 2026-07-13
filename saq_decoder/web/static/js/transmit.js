@@ -1,4 +1,4 @@
-/** Transmit – generate CW audio from text */
+/** Transmit – WAV export and live CW output */
 
 document.addEventListener('DOMContentLoaded', async () => {
   const form = document.getElementById('transmit-form');
@@ -13,6 +13,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const playerCard = document.getElementById('transmit-player');
   const playerInfo = document.getElementById('transmit-info');
   const presetSelect = document.getElementById('transmit-preset');
+  const liveCheck = document.getElementById('transmit-live');
+  const liveStatus = document.getElementById('transmit-live-status');
+  const liveStop = document.getElementById('transmit-live-stop');
+  const liveSendAll = document.getElementById('transmit-live-send-all');
+  const liveHint = document.getElementById('transmit-live-hint');
+
+  const liveCw = createLiveCwTransmitter();
+  let lastSentText = '';
+  let statusTimer = null;
 
   const player = createWaveformPlayer({
     wrap: '#transmit-waveform-wrap',
@@ -27,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnZoomReset: '#transmit-zoom-reset',
   });
 
-  Presets.fillSelect(presetSelect, Presets.currentId);
+  Presets.fillSelect(presetSelect, 'transmit');
   Presets.bindSelect(presetSelect, 'transmit-');
 
   const MORSE_CHARS = {
@@ -57,10 +66,127 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  function isLiveEnabled() {
+    return liveCheck?.checked === true;
+  }
+
+  function updateLiveStatus() {
+    if (!liveStatus) return;
+    if (!isLiveEnabled()) {
+      liveStatus.textContent = 'Aus';
+      liveStatus.className = 'status-pill';
+      if (liveStop) liveStop.disabled = true;
+      return;
+    }
+
+    const remaining = liveCw.remainingSeconds();
+    if (remaining > 0.05) {
+      liveStatus.textContent = 'Sendet…';
+      liveStatus.className = 'status-pill on-air';
+      if (liveStop) liveStop.disabled = false;
+    } else {
+      liveStatus.textContent = 'Bereit';
+      liveStatus.className = 'status-pill';
+      if (liveStop) liveStop.disabled = false;
+    }
+  }
+
+  function startStatusPoll() {
+    clearInterval(statusTimer);
+    statusTimer = setInterval(updateLiveStatus, 100);
+  }
+
+  function stopStatusPoll() {
+    clearInterval(statusTimer);
+    statusTimer = null;
+    updateLiveStatus();
+  }
+
+  function syncLiveAppend() {
+    if (!isLiveEnabled()) return;
+
+    const text = textInput.value;
+    if (!text) {
+      lastSentText = '';
+      return;
+    }
+    if (text === lastSentText) return;
+
+    // Nur Anhängen am Ende oder Backspace am Ende
+    if (text.length < lastSentText.length) {
+      if (lastSentText.startsWith(text)) {
+        lastSentText = text;
+        return;
+      }
+      // Bearbeitung in der Mitte – ab hier neu synchronisieren
+      lastSentText = '';
+    }
+
+    if (!text.startsWith(lastSentText)) {
+      lastSentText = '';
+    }
+
+    const newPart = text.slice(lastSentText.length);
+    if (newPart) {
+      liveCw.sendText(newPart);
+      lastSentText = text;
+      updateLiveStatus();
+    }
+  }
+
+  function enableLiveMode(on) {
+    if (on) {
+      lastSentText = textInput.value;
+      liveCw.resetState();
+      if (liveHint) liveHint.classList.remove('hidden');
+      startStatusPoll();
+      meta.className = 'meta ok';
+      meta.textContent =
+        'Live-Modus aktiv – Preset: ' +
+        (Presets.get(Presets.getStoredId('transmit'))?.name || '') +
+        ' (' + liveCw.getSettingsFromDom().freq + ' Hz, ' +
+        liveCw.getSettingsFromDom().wpm + ' WPM)';
+    } else {
+      liveCw.stop();
+      lastSentText = '';
+      stopStatusPoll();
+      if (meta.textContent.includes('Live-Modus aktiv')) meta.textContent = '';
+    }
+    updateLiveStatus();
+  }
+
   textInput.addEventListener('input', () => {
     preview.textContent = clientMorsePreview(textInput.value);
+    syncLiveAppend();
   });
   preview.textContent = clientMorsePreview(textInput.value);
+
+  liveCheck?.addEventListener('change', () => {
+    enableLiveMode(isLiveEnabled());
+  });
+
+  liveStop?.addEventListener('click', () => {
+    liveCw.stop();
+    lastSentText = textInput.value;
+    liveCw.resetState();
+    updateLiveStatus();
+  });
+
+  liveSendAll?.addEventListener('click', () => {
+    if (!isLiveEnabled()) {
+      liveCheck.checked = true;
+      enableLiveMode(true);
+    }
+    liveCw.stop();
+    liveCw.resetState();
+    lastSentText = '';
+    const text = textInput.value;
+    if (text) {
+      liveCw.sendText(text);
+      lastSentText = text;
+    }
+    updateLiveStatus();
+  });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -93,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       meta.className = 'meta ok';
       meta.textContent =
-        'Preset: ' + (Presets.get(Presets.currentId)?.name || '') +
+        'Preset: ' + (Presets.get(Presets.getStoredId('transmit'))?.name || '') +
         ' \u00b7 CW-Audio erzeugt';
     } catch (err) {
       meta.className = 'meta error';
@@ -119,6 +245,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   window.addEventListener('panelchange', (e) => {
-    if (e.detail.id !== 'transmit') player.stop();
+    if (e.detail.id !== 'transmit') {
+      player.stop();
+      if (isLiveEnabled()) {
+        liveCheck.checked = false;
+        enableLiveMode(false);
+      }
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    liveCw.stop();
+    stopStatusPoll();
   });
 });
