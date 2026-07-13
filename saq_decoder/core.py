@@ -5,6 +5,7 @@ import wave
 from pathlib import Path
 
 from saq_decoder.audio_analysis import analyze_segment
+from saq_decoder.autocorrect import autocorrect
 from saq_decoder.gerke import auto_wpm_scan, decode_with_gerke, gerke_available
 from saq_decoder.models import DecodeOptions, DecodeResult, WavInfo
 from saq_decoder.python_decoder import decode_with_python
@@ -70,8 +71,15 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
         )
         engine = "python"
 
+    text_raw = text
+    corrections: list[str] = []
+    if options.autocorrect:
+        text, corrections = autocorrect(text)
+
     if not options.raw:
         text = format_message(text)
+        if corrections:
+            text_raw = format_message(text_raw)
 
     seg_len = options.length
     if seg_len is None:
@@ -85,6 +93,8 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
         detected_freq=detected_freq,
         freq_used=freq_used,
         freq_auto=options.auto_freq,
+        text_raw=text_raw if corrections else None,
+        corrections=corrections or None,
     )
 
 

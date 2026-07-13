@@ -318,6 +318,14 @@ canvas.waveform.tall { height: 160px; }
   cursor: pointer;
 }
 
+.result-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.result-toolbar.hidden { display: none; }
+
 .decode-history {
   margin-top: 1.25rem;
   padding-top: 1rem;

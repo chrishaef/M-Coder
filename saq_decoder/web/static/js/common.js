@@ -29,6 +29,16 @@ const App = {
       .replace(/"/g, '&quot;');
   },
 
+  formatCorrectionSummary(corrections) {
+    if (!corrections?.length) return '';
+    const shown = corrections.slice(0, 4);
+    let summary = 'Autokorrektur: ' + shown.join(', ');
+    if (corrections.length > shown.length) {
+      summary += ' (+' + (corrections.length - shown.length) + ')';
+    }
+    return summary;
+  },
+
   async fetchJson(url, options = {}) {
     const res = await fetch(url, {
       ...options,

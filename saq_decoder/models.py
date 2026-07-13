@@ -13,6 +13,7 @@ class DecodeOptions:
     python_only: bool = False
     timestamps: bool = False
     raw: bool = False
+    autocorrect: bool = True
 
 
 @dataclass
@@ -24,9 +25,11 @@ class DecodeResult:
     detected_freq: int | None = None
     freq_used: int | None = None
     freq_auto: bool = False
+    text_raw: str | None = None
+    corrections: list[str] | None = None
 
     def to_dict(self) -> dict:
-        return {
+        payload = {
             "text": self.text,
             "wpm": self.wpm,
             "engine": self.engine,
@@ -35,6 +38,11 @@ class DecodeResult:
             "freq_used": self.freq_used,
             "freq_auto": self.freq_auto,
         }
+        if self.text_raw is not None and self.text_raw != self.text:
+            payload["text_raw"] = self.text_raw
+        if self.corrections:
+            payload["corrections"] = self.corrections
+        return payload
 
 
 @dataclass

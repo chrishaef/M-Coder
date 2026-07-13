@@ -89,6 +89,10 @@
           <input type="checkbox" id="live-auto-wpm" checked>
           <label for="live-auto-wpm">WPM automatisch ermitteln</label>
         </div>
+        <div class="check">
+          <input type="checkbox" id="live-autocorrect" checked>
+          <label for="live-autocorrect">Autokorrektur (Wörterbuch &amp; typische Morse-Fehler)</label>
+        </div>
         <p class="hint" id="live-recording-info">Nach Stoppen kann die gesamte Aufnahme als WAV heruntergeladen werden.</p>
       </div>
 
@@ -207,6 +211,10 @@
             <input type="checkbox" id="file-decode-full">
             <label for="file-decode-full">Ganze Datei dekodieren (ohne Markierung)</label>
           </div>
+          <div class="check">
+            <input type="checkbox" id="file-autocorrect" checked>
+            <label for="file-autocorrect">Autokorrektur (Wörterbuch &amp; typische Morse-Fehler)</label>
+          </div>
 
           <button type="submit" class="primary btn-full" id="file-btn">Markierten Bereich dekodieren</button>
         </div>
@@ -214,6 +222,9 @@
 
       <div class="card">
         <p class="card-title">Ergebnis</p>
+        <div class="result-toolbar hidden" id="file-result-toolbar">
+          <button type="button" class="secondary small" id="file-show-raw">Original anzeigen</button>
+        </div>
         <pre class="result" id="file-out">Nach dem Markieren eines Bereichs dekodieren – Preset und Einstellungen jederzeit änderbar.</pre>
         <div class="meta" id="file-meta-result"></div>
         <div id="file-history" class="decode-history hidden">

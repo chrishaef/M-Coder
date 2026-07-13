@@ -101,6 +101,7 @@ async def decode_file(
     auto_wpm: bool = Form(True),
     python_only: bool = Form(False),
     raw: bool = Form(False),
+    autocorrect: bool = Form(True),
     authorization: str | None = Header(None),
     x_api_key: str | None = Header(None, alias="X-API-Key"),
 ):
@@ -115,6 +116,7 @@ async def decode_file(
         auto_wpm=auto_wpm,
         python_only=python_only,
         raw=raw,
+        autocorrect=autocorrect,
     )
 
 
@@ -129,6 +131,7 @@ async def decode_live(
     auto_wpm: bool = Form(True),
     python_only: bool = Form(False),
     raw: bool = Form(False),
+    autocorrect: bool = Form(True),
     authorization: str | None = Header(None),
     x_api_key: str | None = Header(None, alias="X-API-Key"),
 ):
@@ -143,6 +146,7 @@ async def decode_live(
         auto_wpm=auto_wpm,
         python_only=python_only,
         raw=raw,
+        autocorrect=autocorrect,
         max_bytes=LIVE_MAX_BYTES,
     )
 

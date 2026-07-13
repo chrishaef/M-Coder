@@ -282,6 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const wpm = document.getElementById('live-wpm').value;
     if (wpm) fd.append('wpm', wpm);
     fd.append('auto_wpm', document.getElementById('live-auto-wpm').checked ? 'true' : 'false');
+    fd.append('autocorrect', document.getElementById('live-autocorrect').checked ? 'true' : 'false');
 
     try {
       const data = await App.fetchJson('/decode/live', { method: 'POST', body: fd });
@@ -300,6 +301,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           'Preset: ' + (Presets.get(Presets.getStoredId('live'))?.name || '') +
           ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
           freqPart + ' \u00b7 Segment #' + segmentsDecoded;
+        const corrSummary = App.formatCorrectionSummary(data.corrections);
+        if (corrSummary) meta.textContent += ' \u00b7 ' + corrSummary;
       } else {
         meta.className = 'meta';
         meta.textContent = 'Segment #' + segmentsDecoded + ': kein Morse erkannt.';

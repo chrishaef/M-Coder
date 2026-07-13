@@ -68,6 +68,7 @@ async def handle_decode_upload(
     auto_wpm: bool = True,
     python_only: bool = False,
     raw: bool = False,
+    autocorrect: bool = True,
     max_bytes: int | None = None,
 ) -> JSONResponse:
     limit = max_bytes if max_bytes is not None else MAX_UPLOAD_BYTES
@@ -86,6 +87,7 @@ async def handle_decode_upload(
                 auto_wpm=auto_wpm and length is not None,
                 python_only=python_only,
                 raw=raw,
+                autocorrect=autocorrect,
             ),
         )
         analysis = analyze(tmp_path, offset=offset, length=length, center_hz=result.freq_used)

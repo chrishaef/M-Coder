@@ -24,10 +24,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const decodeFullCheckbox = document.getElementById('file-decode-full');
   const historyWrap = document.getElementById('file-history');
   const historyList = document.getElementById('file-history-list');
+  const resultToolbar = document.getElementById('file-result-toolbar');
+  const showRawBtn = document.getElementById('file-show-raw');
 
   let inputSyncTimer = null;
   let decodeHistory = [];
   let historyId = 0;
+  let lastCorrectedText = '';
+  let lastTextRaw = null;
+  let showingRaw = false;
 
   function updateFreqBar(detected) {
     if (detectedFreqEl) detectedFreqEl.textContent = detected != null ? String(detected) : '–';
@@ -159,6 +164,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateDecodeButton();
   });
 
+  function showDecodeResult(data) {
+    lastCorrectedText = data.text || '(leer)';
+    lastTextRaw = data.text_raw || null;
+    showingRaw = false;
+    out.textContent = lastCorrectedText;
+    resultToolbar?.classList.toggle('hidden', !lastTextRaw);
+    if (showRawBtn) showRawBtn.textContent = 'Original anzeigen';
+  }
+
+  showRawBtn?.addEventListener('click', () => {
+    if (!lastTextRaw) return;
+    showingRaw = !showingRaw;
+    out.textContent = showingRaw ? lastTextRaw : lastCorrectedText;
+    showRawBtn.textContent = showingRaw ? 'Korrigiert anzeigen' : 'Original anzeigen';
+  });
+
   historyList?.addEventListener('click', (e) => {
     const btnEl = e.target.closest('.history-item');
     if (!btnEl) return;
@@ -174,6 +195,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       out.textContent = 'Nach dem Markieren eines Bereichs dekodieren – Preset und Einstellungen jederzeit änderbar.';
       meta.textContent = '';
       meta.className = 'meta';
+      lastCorrectedText = '';
+      lastTextRaw = null;
+      resultToolbar?.classList.add('hidden');
       updateDecodeButton();
       return;
     }
@@ -279,10 +303,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const wpm = document.getElementById('file-wpm').value;
     if (wpm) fd.append('wpm', wpm);
     fd.append('auto_wpm', document.getElementById('file-auto-wpm').checked ? 'true' : 'false');
+    fd.append('autocorrect', document.getElementById('file-autocorrect').checked ? 'true' : 'false');
 
     try {
       const data = await App.fetchJson('/decode/file', { method: 'POST', body: fd });
-      out.textContent = data.text || '(leer)';
+      showDecodeResult(data);
       player.drawSpectrumFromServer(data);
       if (data.detected_freq != null) updateFreqBar(data.detected_freq);
       if (data.freq_used != null && document.getElementById('file-auto-freq').checked) {
@@ -304,6 +329,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         ' \u00b7 ' + freqInfo +
         ' \u00b7 Engine: ' + data.engine + ' \u00b7 WPM: ' + data.wpm +
         ' \u00b7 Dauer: ' + data.duration_seconds + 's';
+      const corrSummary = App.formatCorrectionSummary(data.corrections);
+      if (corrSummary) meta.textContent += ' \u00b7 ' + corrSummary;
 
       const entryId = ++historyId;
       addHistoryEntry({
