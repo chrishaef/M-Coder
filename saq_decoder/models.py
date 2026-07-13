@@ -14,6 +14,8 @@ class DecodeOptions:
     timestamps: bool = False
     raw: bool = False
     autocorrect: bool = True
+    # Reject low-confidence decodes (useful for live mic noise).
+    min_score: int | None = None
 
 
 @dataclass

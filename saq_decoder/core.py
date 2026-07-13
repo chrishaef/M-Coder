@@ -6,7 +6,7 @@ from pathlib import Path
 
 from saq_decoder.audio_analysis import analyze_segment
 from saq_decoder.autocorrect import autocorrect
-from saq_decoder.gerke import auto_wpm_scan, decode_with_gerke, gerke_available
+from saq_decoder.gerke import auto_wpm_scan, decode_with_gerke, gerke_available, score_text
 from saq_decoder.models import DecodeOptions, DecodeResult, WavInfo
 from saq_decoder.python_decoder import decode_with_python
 
@@ -81,6 +81,9 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
             wpm=wpm,
         )
         engine = "python"
+
+    if options.min_score is not None and score_text(text) < options.min_score:
+        text = ""
 
     text_raw = text
     corrections: list[str] = []

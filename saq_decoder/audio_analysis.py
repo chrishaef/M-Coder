@@ -87,6 +87,21 @@ def analyze_segment(
     center_hz: int | None = None,
     span_hz: int = 400,
 ) -> dict:
+    # Compute basic level stats on raw PCM to detect near-silence/noise.
+    with wave.open(str(path), "rb") as w:
+        sr = w.getframerate()
+        raw = w.readframes(w.getnframes())
+    pcm = np.frombuffer(raw, dtype=np.int16)
+    i0 = int(offset * sr)
+    i1 = int((offset + length) * sr) if length else len(pcm)
+    seg_pcm = pcm[i0:i1]
+    if seg_pcm.size:
+        rms = float(np.sqrt(np.mean(seg_pcm.astype(np.float64) ** 2)) / 32768.0)
+        peak = float(np.max(np.abs(seg_pcm)) / 32768.0)
+    else:
+        rms = 0.0
+        peak = 0.0
+
     sr, data = load_wav_segment(path, offset, length)
     detected = find_tone_freq(data, sr)
     center = center_hz if center_hz is not None else detected
@@ -96,4 +111,6 @@ def analyze_segment(
         "sample_rate": sr,
         "segment_samples": len(data),
         "spectrum": spectrum,
+        "rms": round(rms, 6),
+        "peak": round(peak, 6),
     }

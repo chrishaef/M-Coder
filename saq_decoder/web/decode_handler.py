@@ -69,6 +69,7 @@ async def handle_decode_upload(
     python_only: bool = False,
     raw: bool = False,
     autocorrect: bool = True,
+    min_score: int | None = None,
     max_bytes: int | None = None,
 ) -> JSONResponse:
     limit = max_bytes if max_bytes is not None else MAX_UPLOAD_BYTES
@@ -88,12 +89,15 @@ async def handle_decode_upload(
                 python_only=python_only,
                 raw=raw,
                 autocorrect=autocorrect,
+                min_score=min_score,
             ),
         )
         analysis = analyze(tmp_path, offset=offset, length=length, center_hz=result.freq_used)
         return JSONResponse({
             **result.to_dict(),
             "spectrum": analysis["spectrum"],
+            "rms": analysis.get("rms"),
+            "peak": analysis.get("peak"),
             "input": {
                 "filename": file.filename,
                 "sample_rate": info.sample_rate,

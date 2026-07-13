@@ -30,6 +30,12 @@ def main() -> int:
     parser.add_argument("--python-only", action="store_true", help="Nur Python-Fallback")
     parser.add_argument("--timestamps", "-t", action="store_true", help="Zeitstempel (gerke)")
     parser.add_argument("--raw", action="store_true", help="Keine Formatierung")
+    parser.add_argument(
+        "--min-score",
+        type=int,
+        default=None,
+        help="Min. Score, sonst Text verwerfen (hilft gegen Noise im Live-Decode).",
+    )
     parser.add_argument("--json", action="store_true", help="JSON-Ausgabe")
     args = parser.parse_args()
 
@@ -55,6 +61,7 @@ def main() -> int:
                 python_only=args.python_only,
                 timestamps=args.timestamps,
                 raw=args.raw,
+                min_score=args.min_score,
             ),
         )
     except RuntimeError as exc:

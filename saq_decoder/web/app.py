@@ -147,6 +147,7 @@ async def decode_live(
         python_only=python_only,
         raw=raw,
         autocorrect=autocorrect,
+        min_score=20,
         max_bytes=LIVE_MAX_BYTES,
     )
 
