@@ -12,6 +12,7 @@ from saq_decoder.config import API_KEY
 from saq_decoder.gerke import gerke_available
 from saq_decoder.presets import list_presets
 from saq_decoder.transmit import generate_cw_wav, text_to_morse
+from saq_decoder.web.asset_version import static_asset_version
 from saq_decoder.web.decode_handler import handle_analyze_upload, handle_decode_upload
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -54,6 +55,7 @@ def health():
     return {
         "status": "ok",
         "version": __version__,
+        "asset_version": static_asset_version(),
         "gerke_available": gerke_available(),
         "features": ["live_decode", "file_decode", "transmit"],
     }
@@ -64,7 +66,9 @@ def index():
     html_path = STATIC_DIR / "index.html"
     if not html_path.exists():
         return HTMLResponse("<h1>M-Coder API</h1><p>POST /decode/file · /decode/live · /transmit</p>")
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    html = html_path.read_text(encoding="utf-8")
+    version = static_asset_version()
+    return HTMLResponse(html.replace("{{ASSET_VERSION}}", version))
 
 
 @app.post("/analyze")

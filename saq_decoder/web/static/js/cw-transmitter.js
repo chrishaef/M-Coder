@@ -47,9 +47,18 @@ function createLiveCwTransmitter() {
       if (ctx.state === 'suspended') {
         await ctx.resume();
       }
+      if (ctx.state === 'suspended') {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+      }
       primeContext(ctx);
-      if (ctx.state !== 'running') {
-        throw new Error('AudioContext ist nicht aktiv (' + ctx.state + ')');
+      if (ctx.state === 'closed') {
+        throw new Error('AudioContext geschlossen');
+      }
+      if (ctx.state === 'suspended') {
+        throw new Error('Audio blockiert – bitte erneut auf „Live übertragen“ klicken');
       }
       return ctx;
     })();

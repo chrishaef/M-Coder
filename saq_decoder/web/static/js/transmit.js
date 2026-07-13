@@ -173,6 +173,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     preview.textContent = clientMorsePreview(textInput.value);
     void syncLiveAppend();
   });
+  textInput.addEventListener('pointerdown', () => {
+    if (isLiveEnabled()) void liveCw.unlock().catch(() => {});
+  });
+  textInput.addEventListener('keydown', () => {
+    if (isLiveEnabled()) void liveCw.unlock().catch(() => {});
+  });
   preview.textContent = clientMorsePreview(textInput.value);
 
   liveCheck?.addEventListener('change', () => {
