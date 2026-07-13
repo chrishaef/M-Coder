@@ -52,6 +52,17 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
         center_hz=options.freq,
     )
     detected_freq = analysis["detected_freq"]
+    if options.auto_freq and detected_freq is None:
+        # No reliable tone found -> treat as "no decode" for this segment.
+        return DecodeResult(
+            text="",
+            wpm=options.wpm or 20.0,
+            engine="gerke" if (not options.python_only and gerke_available()) else "python",
+            duration_seconds=seg_len,
+            detected_freq=None,
+            freq_used=options.freq,
+            freq_auto=True,
+        )
     freq_used = detected_freq if options.auto_freq else (options.freq or detected_freq)
 
     use_gerke = not options.python_only and gerke_available()
@@ -73,13 +84,35 @@ def decode(path: Path, options: DecodeOptions | None = None) -> DecodeResult:
     else:
         decode_freq = None if options.auto_freq else freq_used
         py_length = seg_len if options.length is not None else None
-        text = decode_with_python(
-            path,
-            offset=options.offset,
-            length=py_length,
-            freq=decode_freq,
-            wpm=wpm,
-        )
+        if options.wpm is None and options.auto_wpm:
+            best_wpm: float = 18.0
+            best_text: str = ""
+            best_score: int = -10**9
+            # Coarse scan – robust for synthetic CW and live mic.
+            for cand in range(10, 31):
+                try:
+                    cand_text = decode_with_python(
+                        path,
+                        offset=options.offset,
+                        length=py_length,
+                        freq=decode_freq,
+                        wpm=float(cand),
+                    )
+                except RuntimeError:
+                    continue
+                s = score_text(cand_text)
+                if s > best_score:
+                    best_score, best_wpm, best_text = s, float(cand), cand_text
+            wpm = best_wpm
+            text = best_text
+        else:
+            text = decode_with_python(
+                path,
+                offset=options.offset,
+                length=py_length,
+                freq=decode_freq,
+                wpm=wpm,
+            )
         engine = "python"
 
     if options.min_score is not None and score_text(text) < options.min_score:

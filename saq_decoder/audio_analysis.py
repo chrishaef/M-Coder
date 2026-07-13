@@ -25,16 +25,24 @@ def find_tone_freq(
     lo: int = 400,
     hi: int = 1200,
     step: int = 5,
-) -> int:
+) -> int | None:
     seg = data[: min(len(data), int(20 * sr))]
     if len(seg) < sr // 10:
-        return 750
+        return None
     best_f, best_p = 750, 0.0
+    powers: list[float] = []
     t = np.arange(len(seg)) / sr
     for f in range(lo, hi, step):
         p = abs(float(np.dot(seg, np.sin(2 * np.pi * f * t))))
+        powers.append(p)
         if p > best_p:
             best_f, best_p = f, p
+    if not powers or best_p <= 0:
+        return None
+    # Require a pronounced peak; otherwise treat as "no reliable tone".
+    med = float(np.median(powers))
+    if med <= 0 or best_p < med * 2.5:
+        return None
     return best_f
 
 
@@ -103,8 +111,8 @@ def analyze_segment(
         peak = 0.0
 
     sr, data = load_wav_segment(path, offset, length)
-    detected = find_tone_freq(data, sr)
-    center = center_hz if center_hz is not None else detected
+    detected = None if rms < 0.01 else find_tone_freq(data, sr)
+    center = center_hz if center_hz is not None else (detected if detected is not None else 750)
     spectrum = compute_spectrum(data, sr, center_hz=center, span_hz=span_hz)
     return {
         "detected_freq": detected,

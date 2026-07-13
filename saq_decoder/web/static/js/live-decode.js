@@ -282,6 +282,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (wpm) fd.append('wpm', wpm);
     fd.append('auto_wpm', document.getElementById('live-auto-wpm').checked ? 'true' : 'false');
     fd.append('autocorrect', document.getElementById('live-autocorrect').checked ? 'true' : 'false');
+    // Live: Python engine is more stable for adaptive decoding.
+    fd.append('python_only', 'true');
 
     try {
       const data = await App.fetchJson('/decode/live', { method: 'POST', body: fd });
